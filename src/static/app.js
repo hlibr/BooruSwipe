@@ -8,17 +8,18 @@ class SwipeCard {
         this.loading = document.getElementById('loading');
         this.likesCount = document.getElementById('likes-count');
         this.dislikesCount = document.getElementById('dislikes-count');
-        
+        this.postLink = document.getElementById('post-link');
+
         this.currentImage = null;
         this.stats = { likes: 0, dislikes: 0 };
-        
+
         this.isDragging = false;
         this.startX = 0;
         this.startY = 0;
         this.currentX = 0;
         this.currentY = 0;
         this.threshold = Math.min(window.innerWidth * 0.15, 100);
-        
+
         this.init();
     }
     
@@ -156,23 +157,33 @@ class SwipeCard {
         this.overlay.style.opacity = 0;
         this.likeIndicator.style.opacity = 0;
         this.dislikeIndicator.style.opacity = 0;
-        
+
         try {
             const response = await fetch('/api/image');
             const data = await response.json();
-            
+
             if (data.error) {
                 console.error('Error loading image:', data.error);
                 this.image.src = '';
                 this.currentImage = null;
+                this.postLink.style.display = 'none';
             } else {
                 this.currentImage = data;
                 this.image.src = data.url;
                 this.card.style.display = 'block';
+                
+                // Update post link
+                if (data.post_url) {
+                    this.postLink.href = data.post_url;
+                    this.postLink.style.display = 'inline';
+                } else {
+                    this.postLink.style.display = 'none';
+                }
             }
         } catch (error) {
             console.error('Failed to load image:', error);
             this.currentImage = null;
+            this.postLink.style.display = 'none';
         } finally {
             this.showLoading(false);
         }
