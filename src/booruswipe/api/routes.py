@@ -277,142 +277,117 @@ async def select_next_image(
     swipe_count: int,
 ) -> Any:
     """Select next image using full 3-level fallback with delays.
-    
+
     Hierarchy:
     1. Below LLM_MIN_SWIPES → Truly random seed images (no tags)
     2. Above threshold → LLM recommendations with progressive fallback
     3. Fallback → Tag frequencies (with 0.5s delays)
     4. Final → Random image (with 0.5s delays)
-    
+
     Returns:
         Image object with id, url, tags, sample, width, height
     """
+    import random
+    
     BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "2"))
     BOORU_TAGS_PER_SEARCH_FALLBACK = int(os.getenv("BOORU_TAGS_PER_SEARCH_FALLBACK", "2"))
+    BOORU_SEARCH_LIMIT = int(os.getenv("BOORU_SEARCH_LIMIT", "100"))
+    BOORU_SEARCH_PAGES = int(os.getenv("BOORU_SEARCH_PAGES", "5"))
+    BOORU_SEARCH_SLEEP = float(os.getenv("BOORU_SEARCH_SLEEP", "0.15"))
+    
     profile = await repository.get_or_create_profile()
     LLM_MIN_SWIPES = int(os.getenv("LLM_MIN_SWIPES", "5"))
-    
+
     # Read env vars at runtime (after .env is loaded)
     RANDOM_IMAGE_CHANCE = int(os.getenv("RANDOM_IMAGE_CHANCE", "10"))
-    
+
     # Check random chance FIRST (before any fallback logic)
-    import random
     if RANDOM_IMAGE_CHANCE > 0 and random.randint(1, 100) <= RANDOM_IMAGE_CHANCE:
         log_image(f"Random image triggered ({RANDOM_IMAGE_CHANCE}% chance)")
         try:
             return await booru_client.get_random_image()
         except Exception as e:
             log_error(f"Random image failed: {type(e).__name__}: {e}, falling back to normal selection")
-    
+
     image = None
-    
+
     log_image("Selection started")
-    
+
+    async def search_with_pagination(tags: List[str], limit: int = None) -> Optional[Any]:
+        """Search with pagination, trying multiple pages until finding unseen images."""
+        nonlocal seen_ids
+        if limit is None:
+            limit = BOORU_SEARCH_LIMIT
+        
+        for page in range(BOORU_SEARCH_PAGES):
+            if page > 0:
+                await asyncio.sleep(BOORU_SEARCH_SLEEP)
+            
+            images = await booru_client.search_images(tags, limit=limit, page=page)
+            log_image(f"Page {page}: Gelbooru returned {len(images)} images")
+            
+            filtered = [img for img in images if img.id not in seen_ids]
+            if len(filtered) < len(images):
+                log_image(f"Page {page}: Filtered out {len(images) - len(filtered)} already-seen images")
+            
+            if filtered:
+                return random.choice(filtered)
+        
+        return None
+
     try:
         log_image(f"Loaded {len(seen_ids)} seen image IDs for filtering")
-        
+
         # Skip LLM and tag fallbacks when below threshold - use truly random seed images
         if swipe_count < LLM_MIN_SWIPES:
             log_image(f"Below LLM threshold ({swipe_count} < {LLM_MIN_SWIPES}) - selecting random seed image")
-            # random_images = await booru_client.search_images([], limit=100)
-            # filtered = [img for img in random_images if img.id not in seen_ids]
-            # if filtered:
-            #     import random
-            #     image = random.choice(filtered)
-            #     log_image(f"Selected random seed image {image.id}")
-
-
             random_tag = get_random_tag()
-            images = await booru_client.search_images([random_tag], limit=50)
-            log_image(f"Gelbooru returned {len(images)} images")
-            filtered = [img for img in images if img.id not in seen_ids]
-            if len(filtered) < len(images):
-                log_image(f"Filtered out {len(images) - len(filtered)} already-seen images")
-            if filtered:
-                import random
-                image = random.choice(filtered)
-        
+            image = await search_with_pagination([random_tag])
+
         # Level 1: LLM recommendations
         search_tags = profile.preferences.get("recommended_search_tags", [])
         if search_tags:
             llm_tags = search_tags[:BOORU_TAGS_PER_SEARCH]
             log_image(f"Level 1 - Using LLM recommendations: {', '.join(llm_tags)}")
-            
+
             # Try with all tags first
-            images = await booru_client.search_images(llm_tags, limit=50)
-            log_image(f"Gelbooru returned {len(images)} images")
-            
-            filtered = [img for img in images if img.id not in seen_ids]
-            if len(filtered) < len(images):
-                log_image(f"Filtered out {len(images) - len(filtered)} already-seen images")
-            if filtered:
-                import random
-                image = random.choice(filtered)
+            image = await search_with_pagination(llm_tags)
+            if image:
                 log_image(f"Selected image {image.id}")
             elif len(llm_tags) > 1:
                 # If no results, remove HALF the tags randomly and try once
                 half_count = len(llm_tags) // 2
                 remaining_tags = random.sample(llm_tags, half_count)
                 log_image(f"No results - trying {half_count} random tags: {', '.join(remaining_tags)}")
-                
-                images = await booru_client.search_images(remaining_tags, limit=50)
-                log_image(f"Gelbooru returned {len(images)} images")
-                
-                filtered = [img for img in images if img.id not in seen_ids]
-                if len(filtered) < len(images):
-                    log_image(f"Filtered out {len(images) - len(filtered)} already-seen images")
-                if filtered:
-                    image = random.choice(filtered)
+                image = await search_with_pagination(remaining_tags)
+                if image:
                     log_image(f"Selected image {image.id}")
                 else:
                     log_image("Level 1 failed - moving to Level 2")
             else:
                 log_image("Level 1 failed - moving to Level 2")
-        
+
         # Level 2: Fallback to raw tag frequencies (only if above LLM threshold)
         if image is None and swipe_count >= LLM_MIN_SWIPES:
             await asyncio.sleep(0.5)
             top_tags = await repository.get_top_liked_tags(limit=BOORU_TAGS_PER_SEARCH_FALLBACK)
             if top_tags:
                 log_image(f"Level 2 - Using top liked tags: {', '.join(top_tags)}")
-                images = await booru_client.search_images(top_tags, limit=50)
-                log_image(f"Gelbooru returned {len(images)} images")
-                filtered = [img for img in images if img.id not in seen_ids]
-                if len(filtered) < len(images):
-                    log_image(f"Filtered out {len(images) - len(filtered)} already-seen images")
-                if filtered:
-                    import random
-                    image = random.choice(filtered)
+                image = await search_with_pagination(top_tags)
+                if image:
                     log_image(f"Selected image {image.id} with tags: {', '.join(image.tags[:5])}")
-        
+
         # Level 3: Final fallback to random (only if above LLM threshold)
         if image is None and swipe_count >= LLM_MIN_SWIPES:
             await asyncio.sleep(0.5)
             log_image("Level 3 - Using random image (no tags available)")
             random_tag = get_random_tag()
-            if len(seen_ids) < 100:
-                # Create individual -id:XXX tags for blacklist
-                # blacklist_tags = [f'-id:{id}' for id in list(seen_ids)[:50]]
-                tags = [random_tag]# + blacklist_tags
-                images = await booru_client.search_images(tags, limit=10)
-                log_image(f"Gelbooru returned {len(images)} images")
-                if images:
-                    import random
-                    image = random.choice(images)
-            else:
-                images = await booru_client.search_images([random_tag], limit=50)
-                log_image(f"Gelbooru returned {len(images)} images")
-                filtered = [img for img in images if img.id not in seen_ids]
-                if len(filtered) < len(images):
-                    log_image(f"Filtered out {len(images) - len(filtered)} already-seen images")
-                if filtered:
-                    import random
-                    image = random.choice(filtered)
-            
+            image = await search_with_pagination([random_tag])
+
             if image is None:
                 image = await booru_client.get_random_image()
             log_image(f"Selected random image {image.id}")
-        
+
         # Emergency fallback if still no image (below threshold and random returned nothing)
         if image is None:
             log_image("Emergency fallback: getting random image")
