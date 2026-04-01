@@ -71,6 +71,7 @@ class ImageResponse(BaseModel):
     sample_url: Optional[str] = None
     width: Optional[int] = None
     height: Optional[int] = None
+    post_url: Optional[str] = None
 
 
 @router.get("/image/{image_id}")
@@ -252,9 +253,11 @@ def _build_image_response(image: Any, booru_source: str) -> ImageResponse:
     """Build image response with correct URL (proxy for Gelbooru)."""
     if booru_source == "gelbooru":
         url = f"/api/image/{image.id}"  # Proxy URL
+        post_url = f"https://gelbooru.com/index.php?page=post&s=view&id={image.id}"
     else:
         url = image.url  # Direct URL for Danbooru
-    
+        post_url = image.url  # For Danbooru, use image URL as post reference
+
     return ImageResponse(
         id=image.id,
         url=url,
@@ -262,6 +265,7 @@ def _build_image_response(image: Any, booru_source: str) -> ImageResponse:
         sample_url=image.sample_url if image.sample else None,
         width=image.width,
         height=image.height,
+        post_url=post_url,
     )
 
 
@@ -459,7 +463,7 @@ async def get_image(
     # Only proxy Gelbooru, direct-link Danbooru
     booru_source = os.getenv("BOORU_SOURCE", "danbooru").lower()
     response = _build_image_response(image, booru_source)
-    
+
     _session.current_image = {
         "id": image.id,
         "url": response.url,
@@ -467,8 +471,9 @@ async def get_image(
         "sample_url": image.sample_url if image.sample else None,
         "width": image.width,
         "height": image.height,
+        "post_url": response.post_url,
     }
-    
+
     return response
 
 
@@ -553,10 +558,10 @@ async def record_swipe(
             
             try:
                 image = await select_next_image(repository, booru_client, preference_learner, seen_ids, _session.swipe_count)
-                
+
                 booru_source = os.getenv("BOORU_SOURCE", "danbooru").lower()
                 next_image = _build_image_response(image, booru_source)
-                
+
                 _session.current_image = {
                     "id": image.id,
                     "url": next_image.url,
@@ -564,6 +569,7 @@ async def record_swipe(
                     "sample_url": image.sample_url if image.sample else None,
                     "width": image.width,
                     "height": image.height,
+                    "post_url": next_image.post_url,
                 }
                 log_image(f"Next image selected: id={image.id}")
             except Exception as e:
