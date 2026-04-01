@@ -80,32 +80,38 @@ class DanbooruClient:
         
         return Image.from_api(post)
     
-    async def search_images(self, tags: List[str], limit: int = 100) -> List[Image]:
+    async def search_images(
+        self,
+        tags: List[str],
+        limit: int = 100,
+        page: int = 0,
+    ) -> List[Image]:
         """Search for images by tags.
-        
+
         Args:
             tags: List of tags to search for.
             limit: Maximum number of images to return (max 100).
-            
+            page: Page number (0-indexed) for pagination.
+
         Returns:
             List of Image objects matching the search criteria.
         """
         if limit > 100:
             limit = 100
-        
+
         BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "2"))
         tags = tags[:BOORU_TAGS_PER_SEARCH]
         tag_string = " ".join(tags)
-        log_image(f"Searching Danbooru for tags: {tag_string}")
-        data = await self._request(tags=tag_string, limit=str(limit))
-        
+        log_image(f"Searching Danbooru for tags: {tag_string} (page={page}, limit={limit})")
+        data = await self._request(tags=tag_string, limit=str(limit), page=str(page))
+
         if not data:
             log_image(f"No images found for tags: {tag_string}")
             return []
-        
+
         if not isinstance(data, list):
             data = [data]
-        
+
         log_image(f"Found {len(data)} images for tags: {tag_string}")
         return [Image.from_api(post) for post in data]
     
@@ -198,34 +204,40 @@ class GelbooruClient:
         
         return Image.from_api(post)
     
-    async def search_images(self, tags: List[str], limit: int = 100) -> List[Image]:
+    async def search_images(
+        self,
+        tags: List[str],
+        limit: int = 100,
+        page: int = 0,
+    ) -> List[Image]:
         """Search for images by tags.
-        
+
         Args:
             tags: List of tags to search for.
             limit: Maximum number of images to return (max 100).
-            
+            page: Page number (0-indexed) for pagination.
+
         Returns:
             List of Image objects matching the search criteria.
         """
         if limit > 100:
             limit = 100
-        
+
         BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "2"))
         tags = tags[:BOORU_TAGS_PER_SEARCH]
         tag_string = " ".join(tags)
-        log_image(f"Searching Gelbooru for tags: {tag_string}")
-        data = await self._request(tags=tag_string, limit=limit)
-        
+        log_image(f"Searching Gelbooru for tags: {tag_string} (page={page}, limit={limit})")
+        data = await self._request(tags=tag_string, limit=limit, pid=page)
+
         posts = data.get("post", []) if isinstance(data, dict) else data
-        
+
         if not posts:
             log_image(f"No images found for tags: {tag_string}")
             return []
-        
+
         if not isinstance(posts, list):
             posts = [posts]
-        
+
         log_image(f"Found {len(posts)} images for tags: {tag_string}")
         return [Image.from_api(post) for post in posts]
     
