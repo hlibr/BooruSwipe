@@ -325,25 +325,41 @@ async def select_next_image(
     log_image("Selection started")
 
     async def search_with_pagination(tags: List[str], limit: int = None) -> Optional[Any]:
-        """Search with pagination, trying multiple pages until finding unseen images."""
+        """Search with pagination, trying multiple pages until finding unseen images.
+        
+        Stops early when:
+        - An unseen image is found
+        - A page returns 0 images (no more results)
+        - A page returns fewer than `limit` images (last page with data)
+        """
         nonlocal seen_ids
         if limit is None:
             limit = BOORU_SEARCH_LIMIT
-        
+
         for page in range(BOORU_SEARCH_PAGES):
             if page > 0:
                 await asyncio.sleep(BOORU_SEARCH_SLEEP)
-            
+
             images = await booru_client.search_images(tags, limit=limit, page=page)
             log_image(f"Page {page}: Gelbooru returned {len(images)} images")
-            
+
+            # Stop if no more results from API
+            if len(images) == 0:
+                log_image(f"Page {page}: No more results, stopping pagination")
+                break
+
             filtered = [img for img in images if img.id not in seen_ids]
             if len(filtered) < len(images):
                 log_image(f"Page {page}: Filtered out {len(images) - len(filtered)} already-seen images")
-            
+
             if filtered:
                 return random.choice(filtered)
-        
+
+            # Stop if this was the last page (got fewer results than limit)
+            if len(images) < limit:
+                log_image(f"Page {page}: Last page reached ({len(images)} < {limit}), stopping pagination")
+                break
+
         return None
 
     try:
