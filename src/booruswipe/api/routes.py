@@ -199,9 +199,20 @@ async def run_llm_analysis(repository, preference_learner):
                 tag: data["net_count"]
                 for tag, data in tag_freqs.items()
             }
+
+            LLM_RECENT_POSITIVE = int(os.getenv("LLM_RECENT_POSITIVE", "10"))
+            LLM_RECENT_NEGATIVE = int(os.getenv("LLM_RECENT_NEGATIVE", "10"))
             
             recent_scores = await repository.get_recent_tag_scores(limit=20)
             
+            # Compact to top N positive and M negative
+            if recent_scores:
+                positive = [(tag, score) for tag, score in recent_scores.items() if score > 0]
+                negative = [(tag, score) for tag, score in recent_scores.items() if score < 0]
+                positive.sort(key=lambda x: x[1], reverse=True)
+                negative.sort(key=lambda x: x[1])
+                recent_scores = dict(positive[:LLM_RECENT_POSITIVE] + negative[:LLM_RECENT_NEGATIVE])
+
             learned_profile = await preference_learner.analyze_preferences(tag_counts_formatted, tag_limit=BOORU_TAGS_PER_SEARCH, recent_tag_scores=recent_scores)
             
             db_profile = await repository.get_or_create_profile(session)
