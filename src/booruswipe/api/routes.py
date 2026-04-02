@@ -326,13 +326,12 @@ async def select_next_image(
 
     async def search_with_pagination(tags: List[str], limit: int = None) -> Optional[Any]:
         """Search with pagination, trying multiple pages until finding unseen images.
-        
+
         Stops early when:
         - An unseen image is found
         - A page returns 0 images (no more results)
         - A page returns fewer than `limit` images (last page with data)
         """
-        nonlocal seen_ids
         if limit is None:
             limit = BOORU_SEARCH_LIMIT
 
