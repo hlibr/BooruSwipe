@@ -48,11 +48,11 @@ class Image:
         
         file_url = data.get("file_url")
         large_file_url = data.get("large_file_url")
-        preview_file_url = data.get("preview_file_url")
+        sample_url = data.get("sample_url")
         file_ext = data.get("file_ext", "")
         
-        # Use preview or large for sample_url (lower resolution thumbnails)
-        sample_url = preview_file_url or large_file_url or ""
+        # Gelbooru display should use only the explicit sample URL, or fall back to the original file.
+        sample_url = sample_url or large_file_url or ""
         
         # ALWAYS use file_url (original/high-res) only - no fallback to lower resolution
         return cls(
