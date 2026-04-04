@@ -474,6 +474,7 @@ async def get_image(
     _session.current_image = {
         "id": image.id,
         "url": response.url,
+        "file_url": image.url,
         "tags": image.tags,
         "sample_url": image.sample_url if image.sample else None,
         "width": image.width,
@@ -526,7 +527,7 @@ async def record_swipe(
             booru=booru_source,
             image_id=str(swipe_request.image_id),
             post_url=current["post_url"],
-            file_url=current["url"],
+            file_url=current["file_url"],
             tags=current["tags"],
             liked=liked,
             weight=swipe_request.weight,
@@ -573,6 +574,7 @@ async def record_swipe(
                 _session.current_image = {
                     "id": image.id,
                     "url": next_image.url,
+                    "file_url": image.url,
                     "tags": image.tags,
                     "sample_url": image.sample_url if image.sample else None,
                     "width": image.width,
