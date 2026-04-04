@@ -21,13 +21,14 @@ class DanbooruClient:
     """Async client for Danbooru API."""
     
     BASE_URL = "https://danbooru.donmai.us/posts.json"
+    POST_URL = "https://danbooru.donmai.us/posts/{post_id}.json"
     
     def __init__(self, api_key: Optional[str] = None, user_id: Optional[str] = None):
         """Initialize the client.
         
         Args:
             api_key: Optional API key for higher rate limits
-            user_id: Optional user ID for higher rate limits
+            user_id: Optional Danbooru login name for authenticated requests
         """
         self.api_key = api_key
         self.user_id = user_id
@@ -52,11 +53,12 @@ class DanbooruClient:
                 follow_redirects=True
             )
         
-        headers = {"User-Agent": "BooruSwipe/1.0"}
-        if self.api_key:
-            headers["Authorization"] = f"Bearer {self.api_key}"
-        
-        self._client.headers = headers
+        self._client.headers = {"User-Agent": "BooruSwipe/1.0"}
+        self._client.auth = (
+            httpx.BasicAuth(self.user_id, self.api_key)
+            if self.user_id and self.api_key
+            else None
+        )
         
         url = f"{self.BASE_URL}?{urlencode(params)}"
         
@@ -125,13 +127,27 @@ class DanbooruClient:
             Image object for the requested post.
         """
         log_image(f"Fetching post {post_id} from Danbooru")
-        data = await self._request(tags=f"id:{post_id}", limit="1")
+        if self._client is None:
+            self._client = httpx.AsyncClient(
+                headers={"User-Agent": "BooruSwipe/1.0"},
+                follow_redirects=True
+            )
+
+        self._client.headers = {"User-Agent": "BooruSwipe/1.0"}
+        self._client.auth = (
+            httpx.BasicAuth(self.user_id, self.api_key)
+            if self.user_id and self.api_key
+            else None
+        )
+
+        response = await self._client.get(self.POST_URL.format(post_id=post_id))
+        response.raise_for_status()
+        data = response.json()
         
         if not data:
             raise ValueError(f"Post {post_id} not found")
         
-        post = data[0] if isinstance(data, list) else data
-        return Image.from_api(post)
+        return Image.from_api(data)
 
 
 class GelbooruClient:
