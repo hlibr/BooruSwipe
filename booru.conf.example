@@ -7,27 +7,27 @@ base_url=https://api.openai.com/v1
 model=
 
 # Booru Source (danbooru or gelbooru)
-BOORU_SOURCE=danbooru
+BOORU_SOURCE=gelbooru
 
-# Danbooru API (optional - works without credentials)
+# Danbooru API
 danbooru_api_key=
 danbooru_user_id=
 
-# Gelbooru API (optional - works without credentials)
+# Gelbooru API
 gelbooru_api_key=
 gelbooru_user_id=
 
 # Advanced Settings (optional - defaults shown)
-# LLM_MIN_SWIPES=5
-# LLM_MAX_TAGS=100
+# LLM_MIN_SWIPES=10
+# LLM_MAX_TAGS=30
 # LLM_TAG_FILTER_MIN_COUNT=1
 # LLM_USE_STRUCTURED_OUTPUT=true
 # LLM_RECENT_POSITIVE=10      # Top positive recent tags to send to LLM
 # LLM_RECENT_NEGATIVE=10      # Top negative recent tags to send to LLM
-# BOORU_TAGS_PER_SEARCH=2
-# BOORU_TAGS_PER_SEARCH_FALLBACK=2
-# RANDOM_IMAGE_CHANCE=10
-# DOUBLE_LIKED_NEVER_IGNORE=true
+# BOORU_TAGS_PER_SEARCH=5
+# BOORU_TAGS_PER_SEARCH_FALLBACK=3
+# RANDOM_IMAGE_CHANCE=5
+# DOUBLE_LIKED_NEVER_IGNORE=false
 
 # Search Pagination Settings (optional - defaults shown)
 # BOORU_SEARCH_LIMIT=100        # Max images per page (max 100)
