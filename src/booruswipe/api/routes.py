@@ -36,7 +36,7 @@ def get_random_tag() -> str:
     Returns:
         str: "sort:random" for Gelbooru, "random:1" for Danbooru
     """
-    booru_source = os.getenv("BOORU_SOURCE", "danbooru").lower()
+    booru_source = os.getenv("BOORU_SOURCE", "gelbooru").lower()
     if booru_source == "gelbooru":
         return "sort:random"
     else:
@@ -188,9 +188,9 @@ async def run_llm_analysis(repository, preference_learner):
     when running as a background task.
     """
     llm_state["is_processing"] = True
-    LLM_MAX_TAGS = int(os.getenv("LLM_MAX_TAGS", "100"))
+    LLM_MAX_TAGS = int(os.getenv("LLM_MAX_TAGS", "30"))
     LLM_TAG_FILTER_MIN_COUNT = int(os.getenv("LLM_TAG_FILTER_MIN_COUNT", "1"))
-    BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "2"))
+    BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "5"))
     
     async with repository.async_sessionmaker() as session:
         try:
@@ -252,7 +252,7 @@ async def run_llm_analysis(repository, preference_learner):
 
 async def maybe_trigger_llm(repository, preference_learner):
     """Trigger LLM analysis based on dirty flag logic."""
-    LLM_MIN_SWIPES = int(os.getenv("LLM_MIN_SWIPES", "5"))
+    LLM_MIN_SWIPES = int(os.getenv("LLM_MIN_SWIPES", "10"))
     if _session.swipe_count < LLM_MIN_SWIPES:
         log_llm(f"Skipping LLM analysis: {_session.swipe_count} swipes < {LLM_MIN_SWIPES} threshold")
         return
@@ -306,17 +306,17 @@ async def select_next_image(
     """
     import random
     
-    BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "2"))
-    BOORU_TAGS_PER_SEARCH_FALLBACK = int(os.getenv("BOORU_TAGS_PER_SEARCH_FALLBACK", "2"))
+    BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "5"))
+    BOORU_TAGS_PER_SEARCH_FALLBACK = int(os.getenv("BOORU_TAGS_PER_SEARCH_FALLBACK", "3"))
     BOORU_SEARCH_LIMIT = int(os.getenv("BOORU_SEARCH_LIMIT", "100"))
     BOORU_SEARCH_PAGES = int(os.getenv("BOORU_SEARCH_PAGES", "5"))
     BOORU_SEARCH_SLEEP = float(os.getenv("BOORU_SEARCH_SLEEP", "0.15"))
     
     profile = await repository.get_or_create_profile()
-    LLM_MIN_SWIPES = int(os.getenv("LLM_MIN_SWIPES", "5"))
+    LLM_MIN_SWIPES = int(os.getenv("LLM_MIN_SWIPES", "10"))
 
     # Read env vars at runtime (after .env is loaded)
-    RANDOM_IMAGE_CHANCE = int(os.getenv("RANDOM_IMAGE_CHANCE", "10"))
+    RANDOM_IMAGE_CHANCE = int(os.getenv("RANDOM_IMAGE_CHANCE", "5"))
 
     # Check random chance FIRST (before any fallback logic)
     if RANDOM_IMAGE_CHANCE > 0 and random.randint(1, 100) <= RANDOM_IMAGE_CHANCE:
@@ -452,7 +452,7 @@ async def get_image(
     
     check_booru_client(booru_client)
     
-    DOUBLE_LIKED_NEVER_IGNORE = os.getenv("DOUBLE_LIKED_NEVER_IGNORE", "true").lower() == "true"
+    DOUBLE_LIKED_NEVER_IGNORE = os.getenv("DOUBLE_LIKED_NEVER_IGNORE", "false").lower() == "true"
     
     try:
         seen_ids = await repository.get_filtered_swiped_image_ids(
@@ -468,7 +468,7 @@ async def get_image(
         )
     
     # Only proxy Gelbooru, direct-link Danbooru
-    booru_source = os.getenv("BOORU_SOURCE", "danbooru").lower()
+    booru_source = os.getenv("BOORU_SOURCE", "gelbooru").lower()
     response = _build_image_response(image, booru_source)
 
     _session.current_image = {
@@ -520,9 +520,9 @@ async def record_swipe(
     log_swipe(f"Received: direction={swipe_request.direction}, image_id={swipe_request.image_id}, tag_count={len(current['tags'])}")
     
     try:
-        LLM_MIN_SWIPES = int(os.getenv("LLM_MIN_SWIPES", "5"))
-        BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "2"))
-        booru_source = os.getenv("BOORU_SOURCE", "danbooru").lower()
+        LLM_MIN_SWIPES = int(os.getenv("LLM_MIN_SWIPES", "10"))
+        BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "5"))
+        booru_source = os.getenv("BOORU_SOURCE", "gelbooru").lower()
         await repository.save_swipe(
             booru=booru_source,
             image_id=str(swipe_request.image_id),
@@ -559,7 +559,7 @@ async def record_swipe(
         next_image = None
         try:
             check_booru_client(booru_client)
-            DOUBLE_LIKED_NEVER_IGNORE = os.getenv("DOUBLE_LIKED_NEVER_IGNORE", "true").lower() == "true"
+            DOUBLE_LIKED_NEVER_IGNORE = os.getenv("DOUBLE_LIKED_NEVER_IGNORE", "false").lower() == "true"
             seen_ids = await repository.get_filtered_swiped_image_ids(
                 limit=1000,
                 exclude_double_liked=DOUBLE_LIKED_NEVER_IGNORE
@@ -568,7 +568,7 @@ async def record_swipe(
             try:
                 image = await select_next_image(repository, booru_client, preference_learner, seen_ids, _session.swipe_count)
 
-                booru_source = os.getenv("BOORU_SOURCE", "danbooru").lower()
+                booru_source = os.getenv("BOORU_SOURCE", "gelbooru").lower()
                 next_image = _build_image_response(image, booru_source)
 
                 _session.current_image = {
@@ -583,7 +583,7 @@ async def record_swipe(
                 }
                 log_image(f"Next image selected: id={image.id}")
             except Exception as e:
-                booru_source = os.getenv("BOORU_SOURCE", "danbooru").lower()
+                booru_source = os.getenv("BOORU_SOURCE", "gelbooru").lower()
                 log_error(f"Failed to fetch next image from {booru_source.title()}: {type(e).__name__}: {e}")
                 import traceback
                 log_error(f"Traceback: {traceback.format_exc()}")

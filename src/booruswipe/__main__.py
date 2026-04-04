@@ -172,9 +172,9 @@ def _save_llm_settings(settings: dict[str, str]) -> None:
 @asynccontextmanager
 async def lifespan(app):
     global repo, danbooru_client, gelbooru_client, llm_client, llm_settings, verbose
-    LLM_MAX_TAGS = int(os.getenv("LLM_MAX_TAGS", "100"))
-    BOORU_SOURCE = os.getenv("BOORU_SOURCE", "danbooru").lower()
-    BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "2"))
+    LLM_MAX_TAGS = int(os.getenv("LLM_MAX_TAGS", "30"))
+    BOORU_SOURCE = os.getenv("BOORU_SOURCE", "gelbooru").lower()
+    BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "5"))
     repo = Repository()
     await repo.init_db()
     
