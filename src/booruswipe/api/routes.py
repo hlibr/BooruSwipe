@@ -273,7 +273,7 @@ def _build_image_response(image: Any, booru_source: str) -> ImageResponse:
         post_url = f"https://gelbooru.com/index.php?page=post&s=view&id={image.id}"
     else:
         url = image.url  # Direct URL for Danbooru
-        post_url = image.url  # For Danbooru, use image URL as post reference
+        post_url = f"https://danbooru.donmai.us/posts/{image.id}"
 
     return ImageResponse(
         id=image.id,
