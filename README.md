@@ -81,7 +81,15 @@ python -m booruswipe --verbose
 
 Docker is supported as an alternative local setup path.
 
-Build and run:
+First create the config file:
+
+```bash
+cp booru.conf.example booru.conf
+```
+
+Edit `booru.conf` before starting the container.
+
+Then build and run:
 
 ```bash
 docker compose build
