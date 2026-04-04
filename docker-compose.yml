@@ -1,0 +1,12 @@
+services:
+  booruswipe:
+    build: .
+    command: ["python", "-m", "booruswipe", "--verbose"]
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./booru.conf:/app/booru.conf:ro
+      - booruswipe-data:/root/.booruswipe
+
+volumes:
+  booruswipe-data:

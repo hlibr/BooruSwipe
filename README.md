@@ -101,6 +101,56 @@ Run with verbose logs:
 python -m booruswipe --verbose
 ```
 
+## Docker
+
+Docker is supported as an alternative local setup path.
+
+Build and run:
+
+```bash
+docker compose build
+docker compose up
+```
+
+The compose setup:
+
+- mounts `./booru.conf` into the container at `/app/booru.conf`
+- persists the SQLite database in a named Docker volume
+- runs the app with `--verbose`
+
+Open [http://localhost:8000](http://localhost:8000).
+
+Important: if your LLM runs on the host machine, do not use `localhost` in `booru.conf` when running through Docker.
+
+Inside the container:
+
+- `localhost` means the container itself
+- host services should be reached via `host.docker.internal`
+
+Examples:
+
+```bash
+# LM Studio running on host
+base_url=http://host.docker.internal:1234/v1
+
+# Ollama running on host
+base_url=http://host.docker.internal:11434/v1
+```
+
+If you change only `booru.conf`, rebuild is not needed. Restart is enough:
+
+```bash
+docker compose restart
+```
+
+Useful commands:
+
+```bash
+docker compose logs -f
+docker compose down
+docker compose down -v
+```
+
 ## Configuration
 
 Configuration lives in `booru.conf`.
