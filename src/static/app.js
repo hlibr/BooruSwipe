@@ -2,6 +2,7 @@ class SwipeCard {
     constructor() {
         this.card = document.getElementById('card');
         this.image = document.getElementById('card-image');
+        this.video = document.getElementById('card-video');
         this.overlay = document.getElementById('overlay');
         this.likeIndicator = document.getElementById('like-indicator');
         this.dislikeIndicator = document.getElementById('dislike-indicator');
@@ -157,6 +158,12 @@ class SwipeCard {
         this.overlay.style.opacity = 0;
         this.likeIndicator.style.opacity = 0;
         this.dislikeIndicator.style.opacity = 0;
+        this.image.style.display = 'none';
+        this.image.src = '';
+        this.video.pause();
+        this.video.style.display = 'none';
+        this.video.removeAttribute('src');
+        this.video.load();
 
         try {
             const response = await fetch('/api/image');
@@ -169,12 +176,13 @@ class SwipeCard {
                 this.postLink.style.display = 'none';
             } else {
                 this.currentImage = data;
-                this.image.src = data.url;
+                this.displayMedia(data);
                 this.card.style.display = 'block';
                 
                 // Update post link
                 if (data.post_url) {
                     this.postLink.href = data.post_url;
+                    this.updatePostLinkLabel(data.post_url);
                     this.postLink.style.display = 'inline';
                 } else {
                     this.postLink.style.display = 'none';
@@ -187,6 +195,47 @@ class SwipeCard {
         } finally {
             this.showLoading(false);
         }
+    }
+
+    displayMedia(data) {
+        const mediaType = data.media_type || this.guessMediaType(data.url);
+
+        if (mediaType.startsWith('video/')) {
+            this.video.src = data.url;
+            this.video.style.display = 'block';
+            this.video.load();
+            this.video.play().catch((error) => {
+                console.warn('Video autoplay failed:', error);
+            });
+            return;
+        }
+
+        this.image.src = data.url;
+        this.image.style.display = 'block';
+    }
+
+    guessMediaType(url) {
+        const lowerUrl = (url || '').toLowerCase();
+        if (lowerUrl.endsWith('.mp4')) {
+            return 'video/mp4';
+        }
+        if (lowerUrl.endsWith('.webm')) {
+            return 'video/webm';
+        }
+        return 'image';
+    }
+
+    updatePostLinkLabel(postUrl) {
+        const lowerUrl = (postUrl || '').toLowerCase();
+        if (lowerUrl.includes('gelbooru.com')) {
+            this.postLink.textContent = 'View on Gelbooru';
+            return;
+        }
+        if (lowerUrl.includes('danbooru.donmai.us')) {
+            this.postLink.textContent = 'View on Danbooru';
+            return;
+        }
+        this.postLink.textContent = 'View Post';
     }
     
     async sendSwipe(liked, weight = 1) {
