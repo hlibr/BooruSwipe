@@ -33,12 +33,14 @@ class LLMClient:
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.verbose = verbose
+        headers = {
+            "Content-Type": "application/json",
+            "reasoning_effort": "low"
+        }
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
         self.client = httpx.AsyncClient(
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-                "reasoning_effort": "low"
-            },
+            headers=headers,
             timeout=120.0,
         )
 

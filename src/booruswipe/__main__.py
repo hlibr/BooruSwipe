@@ -218,10 +218,10 @@ async def lifespan(app):
     api_key = llm_settings.get("api_key")
     model = llm_settings.get("model")
     
-    if api_key and model:
+    if model:
         try:
             llm_client = LLMClient(
-                api_key=api_key,
+                api_key=api_key or "",
                 model=model,
                 base_url=llm_settings.get("base_url", "https://api.openai.com/v1"),
                 verbose=verbose,
@@ -236,9 +236,6 @@ async def lifespan(app):
         llm_client = None
         if api_key and not model:
             log_startup("⚠️ LLM DISABLED: API key set but no model specified")
-            log_startup(f"LLM will analyze top {LLM_MAX_TAGS} tags (when enabled)")
-        elif not api_key and model:
-            log_startup("⚠️ LLM DISABLED: Model set but no API key specified")
             log_startup(f"LLM will analyze top {LLM_MAX_TAGS} tags (when enabled)")
         else:
             log_startup("LLM NOT configured (no settings found)")
