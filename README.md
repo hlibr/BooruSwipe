@@ -4,6 +4,16 @@ BooruSwipe is a local swipe-based recommender for Gelbooru and Danbooru with a T
 
 You swipe left/right on images, the app records tag-level feedback, and an LLM periodically turns that feedback into better search tags.
 
+
+
+
+
+https://github.com/user-attachments/assets/6f5cbd00-4947-441a-8e57-eb50b4bd152e
+
+
+
+
+
 ## What It Does
 
 - Serves images from Gelbooru or Danbooru in a Tinder-like interface
