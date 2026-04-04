@@ -95,7 +95,7 @@ BOORU_SOURCE=danbooru
 
 ```bash
 danbooru_api_key=YOUR_DANBOORU_API_KEY
-danbooru_user_id=YOUR_DANBOORU_USER_ID
+danbooru_user_id=YOUR_DANBOORU_LOGIN
 ```
 
 Get your Danbooru API key from: [https://danbooru.donmai.us/user_feedbacks/new](https://danbooru.donmai.us/user_feedbacks/new)
@@ -560,7 +560,7 @@ Complete list of all configuration options:
 | --- | --- | --- | --- |
 | BOORU_SOURCE | Booru source (danbooru or gelbooru) | danbooru | gelbooru |
 | danbooru_api_key | Danbooru API key | (none) | abc123... |
-| danbooru_user_id | Danbooru user ID | (none) | 12345 |
+| danbooru_user_id | Danbooru login name | (none) | your_username |
 | gelbooru_api_key | Gelbooru API key | (none) | abc123... |
 | gelbooru_user_id | Gelbooru user ID | (none) | 12345 |
 | api_key | LLM API key | (none) | sk-... |
