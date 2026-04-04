@@ -1,11 +1,10 @@
 """Tests for LLM integration."""
 
 import json
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
-from booruswipe.db.models import Swipe
 from booruswipe.llm.client import LLMClient
 from booruswipe.llm.preference_learner import PreferenceLearner
 
@@ -18,26 +17,19 @@ def mock_llm_client():
 
 
 @pytest.fixture
-def sample_swipe_history():
-    """Create sample swipe history for testing."""
-    history = []
-    for i in range(10):
-        liked = i < 7
-        swipe = Swipe(
-            id=i + 1,
-            booru="gelbooru",
-            image_id=str(i + 1),
-            post_url=f"https://gelbooru.com/index.php?page=post&s=view&id={i + 1}",
-            file_url=f"https://img.gelbooru.com/{i + 1}.jpg",
-            tags=["tag1", "tag2", "tag3", "popular", "favorite"] if liked else ["tag4", "tag5", "tag6", "unpopular", "boring"],
-            liked=liked,
-        )
-        history.append(swipe)
-    return history
+def sample_tag_stats():
+    """Create sample aggregate tag stats for testing."""
+    return {
+        "tag1": {"liked_count": 7, "disliked_count": 1, "net_count": 6},
+        "tag2": {"liked_count": 5, "disliked_count": 0, "net_count": 5},
+        "popular": {"liked_count": 4, "disliked_count": 0, "net_count": 4},
+        "tag4": {"liked_count": 0, "disliked_count": 3, "net_count": -3},
+        "boring": {"liked_count": 1, "disliked_count": 4, "net_count": -3},
+    }
 
 
 @pytest.mark.asyncio
-async def test_analyze_preferences_with_mock_llm(mock_llm_client, sample_swipe_history):
+async def test_analyze_preferences_with_mock_llm(mock_llm_client, sample_tag_stats):
     """Test preference analysis with mocked LLM response."""
     expected_response = {
         "choices": [
@@ -57,21 +49,23 @@ async def test_analyze_preferences_with_mock_llm(mock_llm_client, sample_swipe_h
     mock_llm_client.chat_completion.return_value = expected_response
 
     learner = PreferenceLearner(mock_llm_client)
-    profile = await learner.analyze_preferences(sample_swipe_history)
+    profile = await learner.analyze_preferences(
+        sample_tag_stats,
+        tag_limit=5,
+        recent_tag_scores={"tag1": 2, "boring": -1},
+    )
 
-    assert profile.total_swipes == 10
-    assert profile.total_likes == 7
-    assert profile.total_dislikes == 3
-    assert "tag1" in profile.liked_tags
-    assert profile.preferences_summary is not None
-    assert len(profile.recommended_search_tags) > 0
+    assert profile.liked_tags == ["tag1", "tag2", "tag3"]
+    assert profile.disliked_tags == ["tag4", "tag5"]
+    assert profile.preferences_summary == "User prefers popular and favorite tags"
+    assert profile.recommended_search_tags == ["tag1", "tag2", "tag3", "popular", "favorite"]
 
 
 @pytest.mark.asyncio
 async def test_analyze_preferences_empty_history(mock_llm_client):
     """Test preference analysis with empty history."""
     learner = PreferenceLearner(mock_llm_client)
-    profile = await learner.analyze_preferences([])
+    profile = await learner.analyze_preferences({})
 
     assert profile.total_swipes == 0
     assert profile.total_likes == 0
@@ -81,7 +75,7 @@ async def test_analyze_preferences_empty_history(mock_llm_client):
 
 
 @pytest.mark.asyncio
-async def test_generate_search_query(mock_llm_client, sample_swipe_history):
+async def test_generate_search_query(mock_llm_client, sample_tag_stats):
     """Test search query generation."""
     expected_response = {
         "choices": [
@@ -97,8 +91,7 @@ async def test_generate_search_query(mock_llm_client, sample_swipe_history):
     mock_llm_client.chat_completion.return_value = expected_response
 
     learner = PreferenceLearner(mock_llm_client)
-    profile = await learner.analyze_preferences(sample_swipe_history)
+    profile = await learner.analyze_preferences(sample_tag_stats, tag_limit=2)
     query = await learner.generate_search_query(profile)
 
-    assert isinstance(query, list)
-    assert len(query) > 0
+    assert query == ["tag1", "tag2"]
