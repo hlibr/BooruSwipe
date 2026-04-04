@@ -525,7 +525,7 @@ async def record_swipe(
         await repository.save_swipe(
             booru=booru_source,
             image_id=str(swipe_request.image_id),
-            post_url=current["url"],
+            post_url=current["post_url"],
             file_url=current["url"],
             tags=current["tags"],
             liked=liked,
