@@ -41,23 +41,23 @@ Edit `booru.conf` and set:
 - `base_url`
 - `model`
 
-Minimum example for Danbooru:
-
-```bash
-BOORU_SOURCE=danbooru
-danbooru_api_key=YOUR_DANBOORU_API_KEY
-danbooru_user_id=YOUR_DANBOORU_LOGIN
-api_key=your-api-key
-base_url=https://api.openai.com/v1
-model=gpt-4o-mini
-```
-
 Minimum example for Gelbooru:
 
 ```bash
 BOORU_SOURCE=gelbooru
 gelbooru_api_key=YOUR_GELBOORU_API_KEY
 gelbooru_user_id=YOUR_GELBOORU_USER_ID
+api_key=your-api-key
+base_url=https://api.openai.com/v1
+model=gpt-4o-mini
+```
+
+Minimum example for Danbooru:
+
+```bash
+BOORU_SOURCE=danbooru
+danbooru_api_key=YOUR_DANBOORU_API_KEY
+danbooru_user_id=YOUR_DANBOORU_LOGIN
 api_key=your-api-key
 base_url=https://api.openai.com/v1
 model=gpt-4o-mini
@@ -134,13 +134,22 @@ Configuration lives in `booru.conf`.
 ### Booru Source
 
 ```bash
-BOORU_SOURCE=danbooru
+BOORU_SOURCE=gelbooru
 ```
 
 Supported values:
 
 - `danbooru`
 - `gelbooru`
+
+### Gelbooru
+
+Gelbooru credentials are required.
+
+```bash
+gelbooru_api_key=YOUR_GELBOORU_API_KEY
+gelbooru_user_id=YOUR_GELBOORU_USER_ID
+```
 
 ### Danbooru
 
@@ -152,15 +161,6 @@ danbooru_user_id=YOUR_DANBOORU_LOGIN
 ```
 
 Danbooru API docs: [https://danbooru.donmai.us/wiki_pages/help:api](https://danbooru.donmai.us/wiki_pages/help:api)
-
-### Gelbooru
-
-Gelbooru credentials are required.
-
-```bash
-gelbooru_api_key=YOUR_GELBOORU_API_KEY
-gelbooru_user_id=YOUR_GELBOORU_USER_ID
-```
 
 ### LLM
 
