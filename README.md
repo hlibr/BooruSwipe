@@ -1,41 +1,17 @@
 # BooruSwipe
 
-BooruSwipe is a local swipe-based recommender for Danbooru and Gelbooru.
+BooruSwipe is a local swipe-based recommender for Gelbooru and Danbooru with a Tinder-like interface.
 
 You swipe left/right on images, the app records tag-level feedback, and an LLM periodically turns that feedback into better search tags. The current system is a practical adaptive tag recommender, not a full ranking model.
 
 ## What It Does
 
-- Serves images from Danbooru or Gelbooru in a Tinder-like interface
+- Serves images from Gelbooru or Danbooru in a Tinder-like interface
 - Records likes, dislikes, and weighted swipes
 - Tracks long-term tag preference and recent tag trend
 - Uses an LLM to generate recommended search tags
 - Falls back to tag-history search and then random images when needed
 - Stores all data locally in SQLite
-
-## Current Status
-
-This project is usable, but it is not production-ready.
-
-Current limitations:
-
-- Single-user oriented: request/session state is kept in process memory
-- Recommendation quality is heuristic and tag-based
-- No live integration test coverage for booru APIs or LLM providers
-- Schema changes are handled ad hoc, not through a real migration system
-
-## How Recommendation Works
-
-The selection loop is currently:
-
-1. Pull cumulative tag counts from swipe history
-2. Pull recent tag scores from the latest swipes
-3. Ask the LLM for recommended search tags
-4. Search the booru with those tags
-5. If that fails, fall back to top liked tags
-6. If that fails, fall back to random
-
-Important detail: the app improves search queries, but it does not yet rank candidate images after retrieval. It is closer to "adaptive search term generation" than "best-image scoring."
 
 ## Requirements
 
@@ -258,11 +234,23 @@ Reset the database:
 python -m booruswipe --reset-db
 ```
 
-## Practical Notes
+## How Recommendation Works
 
-- The app is best thought of as a personal/local tool.
-- The current algorithm is good enough to adapt to obvious tastes, but it still mostly reasons over tag aggregates.
-- If you want a large quality jump, the next step is candidate scoring after retrieval instead of choosing a random unseen result from a matching query.
+The selection loop is currently:
+
+1. Pull cumulative tag counts from swipe history
+2. Pull recent tag scores from the latest swipes
+3. Ask the LLM for recommended search tags
+4. Search the booru with those tags
+5. If that fails, fall back to top liked tags
+6. If that fails, fall back to random
+
+Important detail: the app improves search queries, but it does not yet rank candidate images after retrieval. It is closer to "adaptive search term generation" than "best-image scoring."
+
+## Current limitations:
+
+- Single-user oriented: request/session state is kept in process memory
+- Recommendation quality is heuristic and tag-based
 
 ## Possible Next Improvements
 
