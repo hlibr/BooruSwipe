@@ -697,8 +697,8 @@ async def test_settings(test_request: LLMTestRequest) -> Dict[str, Any]:
                 f"{test_request.base_url.rstrip('/')}/chat/completions",
                 json={
                     "messages": [{"role": "user", "content": test_request.prompt}],
-                    "model": test_request.model,
-                    "temperature": 0.7,
+                    "model": test_request.model
+                    # "temperature": 0.7,
                 },
             )
             response.raise_for_status()
