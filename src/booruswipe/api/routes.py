@@ -201,6 +201,9 @@ async def run_llm_analysis(repository, preference_learner):
 
             LLM_RECENT_POSITIVE = int(os.getenv("LLM_RECENT_POSITIVE", "10"))
             LLM_RECENT_NEGATIVE = int(os.getenv("LLM_RECENT_NEGATIVE", "10"))
+            LLM_RECENT_FILTER_CUMULATIVE_LIKES = (
+                os.getenv("LLM_RECENT_FILTER_CUMULATIVE_LIKES", "true").lower() == "true"
+            )
             
             recent_scores = await repository.get_recent_tag_scores(limit=20)
             
@@ -208,6 +211,15 @@ async def run_llm_analysis(repository, preference_learner):
             if recent_scores:
                 positive = [(tag, score) for tag, score in recent_scores.items() if score > 0]
                 negative = [(tag, score) for tag, score in recent_scores.items() if score < 0]
+                if LLM_RECENT_FILTER_CUMULATIVE_LIKES:
+                    cumulative_liked_tags = {
+                        tag for tag, data in tag_freqs.items() if data["liked_count"] > 0
+                    }
+                    positive = [
+                        (tag, score)
+                        for tag, score in positive
+                        if tag not in cumulative_liked_tags
+                    ]
                 positive.sort(key=lambda x: x[1], reverse=True)
                 negative.sort(key=lambda x: x[1])
                 recent_scores = dict(positive[:LLM_RECENT_POSITIVE] + negative[:LLM_RECENT_NEGATIVE])
