@@ -203,6 +203,7 @@ LLM_TAG_FILTER_MIN_COUNT=1
 LLM_USE_STRUCTURED_OUTPUT=true
 LLM_RECENT_POSITIVE=10
 LLM_RECENT_NEGATIVE=10
+LLM_RECENT_FILTER_CUMULATIVE_LIKES=true
 BOORU_TAGS_PER_SEARCH=5
 BOORU_TAGS_PER_SEARCH_FALLBACK=3
 RANDOM_IMAGE_CHANCE=5
@@ -230,6 +231,7 @@ All supported settings:
 | `LLM_USE_STRUCTURED_OUTPUT` | No | `true` | Whether to validate LLM output against the response schema |
 | `LLM_RECENT_POSITIVE` | No | `10` | Number of top recent positive tags sent to the LLM |
 | `LLM_RECENT_NEGATIVE` | No | `10` | Number of top recent negative tags sent to the LLM |
+| `LLM_RECENT_FILTER_CUMULATIVE_LIKES` | No | `true` | Whether recent positive tags already present in cumulative likes should be filtered out before sending recent trend data to the LLM |
 | `BOORU_TAGS_PER_SEARCH` | No | `5` | Max tags used in the primary booru search |
 | `BOORU_TAGS_PER_SEARCH_FALLBACK` | No | `3` | Max number of top liked tags used in the fallback search query |
 | `RANDOM_IMAGE_CHANCE` | No | `5` | Percent chance to skip recommendation logic and show a random image |

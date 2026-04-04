@@ -24,6 +24,7 @@ gelbooru_user_id=
 # LLM_USE_STRUCTURED_OUTPUT=true
 # LLM_RECENT_POSITIVE=10      # Top positive recent tags to send to LLM
 # LLM_RECENT_NEGATIVE=10      # Top negative recent tags to send to LLM
+# LLM_RECENT_FILTER_CUMULATIVE_LIKES=true
 # BOORU_TAGS_PER_SEARCH=5
 # BOORU_TAGS_PER_SEARCH_FALLBACK=3
 # RANDOM_IMAGE_CHANCE=5
