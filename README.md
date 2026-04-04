@@ -25,8 +25,8 @@ https://github.com/user-attachments/assets/6f5cbd00-4947-441a-8e57-eb50b4bd152e
 
 - Python 3.10+
 - Booru credentials for one of:
-  - Danbooru
-  - Gelbooru
+  - Gelbooru (https://gelbooru.com/index.php?page=account&s=options - api_key and user_id)
+  - Danbooru (https://danbooru.donmai.us/profile - api key and username)
 - One of:
   - OpenAI-compatible LLM API
   - Ollama
