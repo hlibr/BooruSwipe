@@ -67,8 +67,8 @@ class LLMClient:
                     f"{self.base_url}/chat/completions",
                     json={
                         "messages": messages,
-                        "model": self.model,
-                        "temperature": temperature,
+                        "model": self.model
+                        # "temperature": temperature,
                     },
                 )
                 response.raise_for_status()
