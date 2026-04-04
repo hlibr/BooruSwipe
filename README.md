@@ -8,9 +8,8 @@ You swipe left/right on images, the app records tag-level feedback, and an LLM p
 
 - Serves images from Gelbooru or Danbooru in a Tinder-like interface
 - Records likes, dislikes, and weighted swipes
-- Tracks long-term tag preference and recent tag like/dislike trend
-- First images are random (the amount is configurable, default: 10), then it uses an LLM to generate recommended search tags
-- If no LLM is connected, simply uses top likes to query the next image
+- First images are random (the amount is configurable, default: 10), then it uses an LLM to generate search tags that get used for next image selection
+- If no LLM is connected, simply uses the top liked tags to query the next image
 
 ## Requirements
 
