@@ -3,6 +3,7 @@ class SwipeCard {
         this.card = document.getElementById('card');
         this.image = document.getElementById('card-image');
         this.video = document.getElementById('card-video');
+        this.cardLoading = document.getElementById('card-loading');
         this.overlay = document.getElementById('overlay');
         this.likeIndicator = document.getElementById('like-indicator');
         this.dislikeIndicator = document.getElementById('dislike-indicator');
@@ -176,9 +177,6 @@ class SwipeCard {
                 this.postLink.style.display = 'none';
             } else {
                 this.currentImage = data;
-                this.displayMedia(data);
-                this.card.style.display = 'block';
-                
                 // Update post link
                 if (data.post_url) {
                     this.postLink.href = data.post_url;
@@ -187,6 +185,11 @@ class SwipeCard {
                 } else {
                     this.postLink.style.display = 'none';
                 }
+
+                this.card.style.display = 'block';
+                this.showLoading(false);
+                this.showMediaLoading(true);
+                await this.displayMedia(data);
             }
         } catch (error) {
             console.error('Failed to load image:', error);
@@ -197,21 +200,62 @@ class SwipeCard {
         }
     }
 
-    displayMedia(data) {
+    async displayMedia(data) {
         const mediaType = data.media_type || this.guessMediaType(data.url);
 
         if (mediaType.startsWith('video/')) {
-            this.video.src = data.url;
-            this.video.style.display = 'block';
-            this.video.load();
-            this.video.play().catch((error) => {
-                console.warn('Video autoplay failed:', error);
-            });
+            await this.loadVideo(data.url);
             return;
         }
 
-        this.image.src = data.url;
-        this.image.style.display = 'block';
+        await this.loadImageElement(data.url);
+    }
+
+    loadImageElement(url) {
+        return new Promise((resolve) => {
+            this.image.onload = () => {
+                this.image.onload = null;
+                this.image.onerror = null;
+                this.image.style.display = 'block';
+                this.showMediaLoading(false);
+                resolve();
+            };
+            this.image.onerror = (error) => {
+                console.error('Failed to load image asset:', error);
+                this.image.onload = null;
+                this.image.onerror = null;
+                this.showMediaLoading(false);
+                resolve();
+            };
+            this.image.src = url;
+        });
+    }
+
+    loadVideo(url) {
+        return new Promise((resolve) => {
+            const finish = () => {
+                this.video.oncanplay = null;
+                this.video.onerror = null;
+                this.video.style.display = 'block';
+                this.showMediaLoading(false);
+                this.video.play().catch((error) => {
+                    console.warn('Video autoplay failed:', error);
+                });
+                resolve();
+            };
+
+            this.video.oncanplay = finish;
+            this.video.onerror = (error) => {
+                console.error('Failed to load video asset:', error);
+                this.video.oncanplay = null;
+                this.video.onerror = null;
+                this.showMediaLoading(false);
+                resolve();
+            };
+
+            this.video.src = url;
+            this.video.load();
+        });
     }
 
     guessMediaType(url) {
@@ -288,6 +332,14 @@ class SwipeCard {
             this.loading.classList.add('visible');
         } else {
             this.loading.classList.remove('visible');
+        }
+    }
+
+    showMediaLoading(show) {
+        if (show) {
+            this.cardLoading.classList.add('visible');
+        } else {
+            this.cardLoading.classList.remove('visible');
         }
     }
     
