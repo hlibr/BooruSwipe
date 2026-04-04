@@ -2,14 +2,14 @@
 
 BooruSwipe is a local swipe-based recommender for Gelbooru and Danbooru with a Tinder-like interface.
 
-You swipe left/right on images, the app records tag-level feedback, and an LLM periodically turns that feedback into better search tags. The current system is a practical adaptive tag recommender, not a full ranking model.
+You swipe left/right on images, the app records tag-level feedback, and an LLM periodically turns that feedback into better search tags.
 
 ## What It Does
 
 - Serves images from Gelbooru or Danbooru in a Tinder-like interface
 - Records likes, dislikes, and weighted swipes
 - Tracks long-term tag preference and recent tag like/dislike trend
-- First 10 images are random (the amount is configurable), then it uses an LLM to generate recommended search tags
+- First images are random (the amount is configurable, default: 10), then it uses an LLM to generate recommended search tags
 - If no LLM is connected, simply uses top likes to query the next image
 
 ## Requirements
@@ -207,7 +207,7 @@ All supported settings:
 
 | Setting | Required | Default | Meaning |
 | --- | --- | --- | --- |
-| `api_key` | Yes | none | API key for the LLM provider |
+| `api_key` | No | none | API key for the LLM provider |
 | `base_url` | Yes | `https://api.openai.com/v1` | Base URL for the LLM provider |
 | `model` | Yes | none | Model name used for chat completions |
 | `BOORU_SOURCE` | Yes | `gelbooru` | Which booru backend to use |
