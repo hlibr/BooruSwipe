@@ -217,7 +217,7 @@ All supported settings:
 | `LLM_RECENT_POSITIVE` | No | `10` | Number of top recent positive tags sent to the LLM |
 | `LLM_RECENT_NEGATIVE` | No | `10` | Number of top recent negative tags sent to the LLM |
 | `BOORU_TAGS_PER_SEARCH` | No | `5` | Max tags used in the primary booru search |
-| `BOORU_TAGS_PER_SEARCH_FALLBACK` | No | `3` | Max tags used in fallback tag-history search |
+| `BOORU_TAGS_PER_SEARCH_FALLBACK` | No | `3` | Max number of top liked tags used in the fallback search query |
 | `RANDOM_IMAGE_CHANCE` | No | `5` | Percent chance to skip recommendation logic and show a random image |
 | `DOUBLE_LIKED_NEVER_IGNORE` | No | `false` | Whether double-liked images are exempt from repeat filtering |
 | `BOORU_SEARCH_LIMIT` | No | `100` | Images requested per booru search page |
