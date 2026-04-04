@@ -168,8 +168,6 @@ danbooru_api_key=YOUR_DANBOORU_API_KEY
 danbooru_user_id=YOUR_DANBOORU_LOGIN
 ```
 
-Danbooru API docs: [https://danbooru.donmai.us/wiki_pages/help:api](https://danbooru.donmai.us/wiki_pages/help:api)
-
 ### LLM
 
 ```bash
