@@ -101,7 +101,7 @@ class DanbooruClient:
         if limit > 100:
             limit = 100
 
-        BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "2"))
+        BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "5"))
         tags = tags[:BOORU_TAGS_PER_SEARCH]
         tag_string = " ".join(tags)
         log_image(f"Searching Danbooru for tags: {tag_string} (page={page}, limit={limit})")
@@ -239,7 +239,7 @@ class GelbooruClient:
         if limit > 100:
             limit = 100
 
-        BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "2"))
+        BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "5"))
         tags = tags[:BOORU_TAGS_PER_SEARCH]
         tag_string = " ".join(tags)
         log_image(f"Searching Gelbooru for tags: {tag_string} (page={page}, limit={limit})")

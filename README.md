@@ -180,17 +180,49 @@ Example providers:
 
 ### Tuning
 
-Useful settings:
+Current defaults:
 
 ```bash
-LLM_MIN_SWIPES=5
-LLM_MAX_TAGS=100
+LLM_MIN_SWIPES=10
+LLM_MAX_TAGS=30
 LLM_TAG_FILTER_MIN_COUNT=1
-BOORU_TAGS_PER_SEARCH=2
 LLM_USE_STRUCTURED_OUTPUT=true
-RANDOM_IMAGE_CHANCE=10
-DOUBLE_LIKED_NEVER_IGNORE=true
+LLM_RECENT_POSITIVE=10
+LLM_RECENT_NEGATIVE=10
+BOORU_TAGS_PER_SEARCH=5
+BOORU_TAGS_PER_SEARCH_FALLBACK=3
+RANDOM_IMAGE_CHANCE=5
+DOUBLE_LIKED_NEVER_IGNORE=false
+BOORU_SEARCH_LIMIT=100
+BOORU_SEARCH_PAGES=5
+BOORU_SEARCH_SLEEP=0.15
 ```
+
+All supported settings:
+
+| Setting | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `api_key` | Yes | none | API key for the LLM provider |
+| `base_url` | Yes | `https://api.openai.com/v1` | Base URL for the LLM provider |
+| `model` | Yes | none | Model name used for chat completions |
+| `BOORU_SOURCE` | Yes | `gelbooru` | Which booru backend to use |
+| `danbooru_api_key` | If `BOORU_SOURCE=danbooru` | none | Danbooru API key |
+| `danbooru_user_id` | If `BOORU_SOURCE=danbooru` | none | Danbooru login name |
+| `gelbooru_api_key` | If `BOORU_SOURCE=gelbooru` | none | Gelbooru API key |
+| `gelbooru_user_id` | If `BOORU_SOURCE=gelbooru` | none | Gelbooru user ID |
+| `LLM_MIN_SWIPES` | No | `10` | Swipes required before LLM analysis starts |
+| `LLM_MAX_TAGS` | No | `30` | Max number of cumulative tags sent to the LLM |
+| `LLM_TAG_FILTER_MIN_COUNT` | No | `1` | Minimum absolute tag score to include in LLM input |
+| `LLM_USE_STRUCTURED_OUTPUT` | No | `true` | Whether to validate LLM output against the response schema |
+| `LLM_RECENT_POSITIVE` | No | `10` | Number of top recent positive tags sent to the LLM |
+| `LLM_RECENT_NEGATIVE` | No | `10` | Number of top recent negative tags sent to the LLM |
+| `BOORU_TAGS_PER_SEARCH` | No | `5` | Max tags used in the primary booru search |
+| `BOORU_TAGS_PER_SEARCH_FALLBACK` | No | `3` | Max tags used in fallback tag-history search |
+| `RANDOM_IMAGE_CHANCE` | No | `5` | Percent chance to skip recommendation logic and show a random image |
+| `DOUBLE_LIKED_NEVER_IGNORE` | No | `false` | Whether double-liked images are exempt from repeat filtering |
+| `BOORU_SEARCH_LIMIT` | No | `100` | Images requested per booru search page |
+| `BOORU_SEARCH_PAGES` | No | `5` | Number of pages to scan before giving up |
+| `BOORU_SEARCH_SLEEP` | No | `0.15` | Delay between paginated booru requests in seconds |
 
 ## API Overview
 
