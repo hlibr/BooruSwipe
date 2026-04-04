@@ -90,6 +90,8 @@ async def serve_image(
     try:
         image_data = await booru_client.get_post(image_id)
         image_url = image_data.url
+        if image_data.media_type == "image" and image_data.sample_url:
+            image_url = image_data.sample_url
     except Exception as e:
         logger.error(f"Failed to fetch image {image_id} from booru: {e}")
         raise HTTPException(status_code=404, detail="Image not found")
@@ -275,7 +277,7 @@ def _build_image_response(image: Any, booru_source: str) -> ImageResponse:
         url = f"/api/image/{image.id}"  # Proxy URL
         post_url = f"https://gelbooru.com/index.php?page=post&s=view&id={image.id}"
     else:
-        url = image.url  # Direct URL for Danbooru
+        url = image.sample_url if image.media_type == "image" and image.sample_url else image.url
         post_url = f"https://danbooru.donmai.us/posts/{image.id}"
 
     return ImageResponse(
