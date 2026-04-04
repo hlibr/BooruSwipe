@@ -1,6 +1,6 @@
 """SQLAlchemy models for BooruSwipe."""
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import List, Optional
 
 from sqlalchemy import String, Text, TypeDecorator
@@ -52,7 +52,10 @@ class Swipe(Base):
     tags: Mapped[List[str]] = mapped_column(JSONList(), nullable=False, default=list)
     liked: Mapped[bool] = mapped_column(nullable=False)
     weight: Mapped[int] = mapped_column(nullable=False, default=1)
-    timestamp: Mapped[datetime] = mapped_column(default=datetime.utcnow, nullable=False)
+    timestamp: Mapped[datetime] = mapped_column(
+        default=lambda: datetime.now(UTC),
+        nullable=False,
+    )
 
 
 class PreferenceProfile(Base):
@@ -62,8 +65,15 @@ class PreferenceProfile(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     preferences: Mapped[dict] = mapped_column(JSONDict(), nullable=False, default=dict)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        default=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
 
 
 class TagCount(Base):
@@ -74,7 +84,11 @@ class TagCount(Base):
     tag: Mapped[str] = mapped_column(String(256), primary_key=True)
     liked_count: Mapped[int] = mapped_column(default=0, nullable=False)
     disliked_count: Mapped[int] = mapped_column(default=0, nullable=False)
-    last_updated: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    last_updated: Mapped[datetime] = mapped_column(
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
 
 
 class SwipedImage(Base):
@@ -84,7 +98,10 @@ class SwipedImage(Base):
 
     image_id: Mapped[int] = mapped_column(primary_key=True)
     liked: Mapped[bool] = mapped_column(nullable=False)
-    swiped_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, nullable=False)
+    swiped_at: Mapped[datetime] = mapped_column(
+        default=lambda: datetime.now(UTC),
+        nullable=False,
+    )
 
 
 class DoubleLikedImage(Base):
@@ -93,4 +110,7 @@ class DoubleLikedImage(Base):
     __tablename__ = "double_liked_images"
 
     image_id: Mapped[int] = mapped_column(primary_key=True)
-    liked_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, nullable=False)
+    liked_at: Mapped[datetime] = mapped_column(
+        default=lambda: datetime.now(UTC),
+        nullable=False,
+    )
