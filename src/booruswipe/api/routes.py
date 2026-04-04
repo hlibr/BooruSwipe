@@ -89,9 +89,7 @@ async def serve_image(
     # Fetch image data from booru API directly
     try:
         image_data = await booru_client.get_post(image_id)
-        image_url = image_data.url
-        if image_data.media_type == "image" and image_data.sample_url:
-            image_url = image_data.sample_url
+        image_url = image_data.sample_url or image_data.url
     except Exception as e:
         logger.error(f"Failed to fetch image {image_id} from booru: {e}")
         raise HTTPException(status_code=404, detail="Image not found")
@@ -273,11 +271,20 @@ async def maybe_trigger_llm(repository, preference_learner):
 
 def _build_image_response(image: Any, booru_source: str) -> ImageResponse:
     """Build image response with correct URL (proxy for Gelbooru)."""
+    display_url = image.sample_url or image.url
+    lower_display_url = display_url.lower()
+    if lower_display_url.endswith(".mp4"):
+        display_media_type = "video/mp4"
+    elif lower_display_url.endswith(".webm"):
+        display_media_type = "video/webm"
+    else:
+        display_media_type = "image"
+
     if booru_source == "gelbooru":
         url = f"/api/image/{image.id}"  # Proxy URL
         post_url = f"https://gelbooru.com/index.php?page=post&s=view&id={image.id}"
     else:
-        url = image.sample_url if image.media_type == "image" and image.sample_url else image.url
+        url = display_url
         post_url = f"https://danbooru.donmai.us/posts/{image.id}"
 
     return ImageResponse(
@@ -288,7 +295,7 @@ def _build_image_response(image: Any, booru_source: str) -> ImageResponse:
         width=image.width,
         height=image.height,
         post_url=post_url,
-        media_type=image.media_type,
+        media_type=display_media_type,
     )
 
 
