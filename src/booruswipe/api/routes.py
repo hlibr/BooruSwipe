@@ -72,6 +72,7 @@ class ImageResponse(BaseModel):
     width: Optional[int] = None
     height: Optional[int] = None
     post_url: Optional[str] = None
+    media_type: Optional[str] = None
 
 
 @router.get("/image/{image_id}")
@@ -101,9 +102,10 @@ async def serve_image(
         }
         response = await client.get(image_url, headers=headers)
         
-        # If we got HTML instead of image, try sample_url as fallback
+        # If we got HTML or some other unsupported response, try sample_url as fallback
         content_type = response.headers.get("content-type", "")
-        if response.status_code != 200 or "image" not in content_type:
+        is_supported_media = "image" in content_type or "video" in content_type
+        if response.status_code != 200 or not is_supported_media:
             # Try sample URL instead
             try:
                 sample_url = image_data.sample_url
@@ -112,9 +114,10 @@ async def serve_image(
             except:
                 pass
         
-        # Final check - if still not an image, return error
+        # Final check - if still not an image or video, return error
         content_type = response.headers.get("content-type", "")
-        if response.status_code != 200 or "image" not in content_type:
+        is_supported_media = "image" in content_type or "video" in content_type
+        if response.status_code != 200 or not is_supported_media:
             logger.error(f"Could not fetch image {image_id}: got {content_type}")
             raise HTTPException(status_code=502, detail="Could not fetch image")
     
@@ -283,6 +286,7 @@ def _build_image_response(image: Any, booru_source: str) -> ImageResponse:
         width=image.width,
         height=image.height,
         post_url=post_url,
+        media_type=image.media_type,
     )
 
 
@@ -480,6 +484,7 @@ async def get_image(
         "width": image.width,
         "height": image.height,
         "post_url": response.post_url,
+        "media_type": response.media_type,
     }
 
     return response
@@ -580,6 +585,7 @@ async def record_swipe(
                     "width": image.width,
                     "height": image.height,
                     "post_url": next_image.post_url,
+                    "media_type": next_image.media_type,
                 }
                 log_image(f"Next image selected: id={image.id}")
             except Exception as e:

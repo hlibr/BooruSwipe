@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from typing import List
+from urllib.parse import urlparse
 
 
 @dataclass
@@ -14,7 +15,23 @@ class Image:
     height: int
     sample: bool
     sample_url: str
+    media_type: str
     directory: str
+
+    @staticmethod
+    def _guess_media_type(url: str, file_ext: str = "") -> str:
+        """Infer media type from API metadata or URL."""
+        normalized_ext = (file_ext or "").lower().lstrip(".")
+        if not normalized_ext and url:
+            path = urlparse(url).path.lower()
+            if "." in path:
+                normalized_ext = path.rsplit(".", 1)[-1]
+
+        if normalized_ext == "mp4":
+            return "video/mp4"
+        if normalized_ext == "webm":
+            return "video/webm"
+        return "image"
     
     @classmethod
     def from_api(cls, data: dict) -> "Image":
@@ -32,6 +49,7 @@ class Image:
         file_url = data.get("file_url")
         large_file_url = data.get("large_file_url")
         preview_file_url = data.get("preview_file_url")
+        file_ext = data.get("file_ext", "")
         
         # Use preview or large for sample_url (lower resolution thumbnails)
         sample_url = preview_file_url or large_file_url or ""
@@ -45,6 +63,7 @@ class Image:
             height=int(data.get("image_height", 0) or 0),
             sample=bool(data.get("has_large", False)),
             sample_url=sample_url,
+            media_type=cls._guess_media_type(file_url or sample_url or "", file_ext),
             directory=""
         )
 
