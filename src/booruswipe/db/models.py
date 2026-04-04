@@ -51,6 +51,7 @@ class Swipe(Base):
     file_url: Mapped[str] = mapped_column(String(512), nullable=False)
     tags: Mapped[List[str]] = mapped_column(JSONList(), nullable=False, default=list)
     liked: Mapped[bool] = mapped_column(nullable=False)
+    weight: Mapped[int] = mapped_column(nullable=False, default=1)
     timestamp: Mapped[datetime] = mapped_column(default=datetime.utcnow, nullable=False)
 
 

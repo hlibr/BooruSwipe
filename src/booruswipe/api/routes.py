@@ -523,6 +523,7 @@ async def record_swipe(
             file_url=current["url"],
             tags=current["tags"],
             liked=liked,
+            weight=swipe_request.weight,
         )
         
         await repository.add_swiped_image(swipe_request.image_id, liked)

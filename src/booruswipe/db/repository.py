@@ -3,7 +3,7 @@ import logging
 from pathlib import Path
 from typing import List, Optional
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from .database import Base
@@ -42,6 +42,14 @@ class Repository:
     async def init_db(self) -> None:
         async with self._engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+            existing_columns = {
+                row[1]
+                for row in (await conn.execute(text("PRAGMA table_info(swipes)"))).fetchall()
+            }
+            if "weight" not in existing_columns:
+                await conn.execute(
+                    text("ALTER TABLE swipes ADD COLUMN weight INTEGER NOT NULL DEFAULT 1")
+                )
         log_startup("Database initialized successfully")
 
     async def save_swipe(
@@ -52,6 +60,7 @@ class Repository:
         file_url: str,
         tags: List[str],
         liked: bool,
+        weight: int = 1,
     ) -> Swipe:
         async with self.async_sessionmaker() as session:
             try:
@@ -62,6 +71,7 @@ class Repository:
                     file_url=file_url,
                     tags=tags,
                     liked=liked,
+                    weight=weight,
                 )
                 session.add(swipe)
                 await session.commit()
@@ -336,7 +346,7 @@ class Repository:
             
             tag_scores: dict[str, int] = {}
             for swipe in recent_swipes:
-                score = 1 if swipe.liked else -1
+                score = swipe.weight if swipe.liked else -swipe.weight
                 for tag in swipe.tags:
                     tag_scores[tag] = tag_scores.get(tag, 0) + score
             
