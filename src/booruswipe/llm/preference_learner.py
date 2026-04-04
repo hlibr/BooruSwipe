@@ -85,18 +85,23 @@ class PreferenceLearner:
         self.client = client
         self.verbose = verbose
 
-    async def analyze_preferences(self, tag_freqs: dict[str, int], tag_limit: int = 2, recent_tag_scores: Optional[dict[str, int]] = None) -> PreferenceProfile:
+    async def analyze_preferences(
+        self,
+        tag_stats: dict[str, dict[str, int]],
+        tag_limit: int = 2,
+        recent_tag_scores: Optional[dict[str, int]] = None,
+    ) -> PreferenceProfile:
         """Analyze tag frequency data to extract user preferences.
 
         Args:
-            tag_freqs: Dictionary of tag -> net_count (positive = liked, negative = disliked)
+            tag_stats: Dictionary of tag -> liked_count, disliked_count, net_count
             tag_limit: Number of tags to recommend (BOORU_TAGS_PER_SEARCH)
             recent_tag_scores: Dictionary of tag -> net_score from last N swipes (optional)
 
         Returns:
             PreferenceProfile with extracted preferences
         """
-        total_tags = len(tag_freqs)
+        total_tags = len(tag_stats)
         
         if total_tags == 0:
             return PreferenceProfile(
@@ -109,26 +114,61 @@ class PreferenceLearner:
                 total_dislikes=0,
             )
 
-        liked_tags = {tag: count for tag, count in tag_freqs.items() if count > 0}
-        disliked_tags = {tag: count for tag, count in tag_freqs.items() if count < 0}
+        positive_net_tags = {
+            tag: data["net_count"] for tag, data in tag_stats.items() if data["net_count"] > 0
+        }
+        negative_net_tags = {
+            tag: data["net_count"] for tag, data in tag_stats.items() if data["net_count"] < 0
+        }
 
-        sorted_liked = sorted(liked_tags.items(), key=lambda x: x[1], reverse=True)
-        sorted_disliked = sorted(disliked_tags.items(), key=lambda x: x[1])
+        sorted_positive_net = sorted(
+            positive_net_tags.items(),
+            key=lambda item: item[1],
+            reverse=True,
+        )
+        sorted_negative_net = sorted(
+            negative_net_tags.items(),
+            key=lambda item: item[1],
+        )
+        sorted_liked = sorted(
+            tag_stats.items(),
+            key=lambda item: (item[1]["liked_count"], item[1]["net_count"]),
+            reverse=True,
+        )
+        sorted_disliked = sorted(
+            tag_stats.items(),
+            key=lambda item: (item[1]["disliked_count"], -item[1]["net_count"]),
+            reverse=True,
+        )
 
-        top_10_liked = sorted_liked[:10]
-        top_10_disliked = sorted_disliked[:10]
+        top_10_positive_net = sorted_positive_net[:10]
+        top_10_negative_net = sorted_negative_net[:10]
 
-        liked_tags_str = ", ".join(f"{tag} ({count}x)" for tag, count in sorted_liked[:20])
-        disliked_tags_str = ", ".join(f"{tag} ({abs(count)}x)" for tag, count in sorted_disliked[:20])
+        liked_tags_str = ", ".join(
+            f"{tag} ({data['liked_count']} likes, net {data['net_count']:+d})"
+            for tag, data in sorted_liked[:20]
+            if data["liked_count"] > 0
+        )
+        disliked_tags_str = ", ".join(
+            f"{tag} ({data['disliked_count']} dislikes, net {data['net_count']:+d})"
+            for tag, data in sorted_disliked[:20]
+            if data["disliked_count"] > 0
+        )
 
         log_llm(f"LLM Input: {total_tags} total unique tags")
-        log_llm(f"LLM Input: Top 10 liked tags: {[tag for tag, _ in top_10_liked]}")
-        log_llm(f"LLM Input: Top 10 disliked tags: {[tag for tag, _ in top_10_disliked]}")
+        log_llm(
+            f"LLM Input: Top 10 liked tags: "
+            f"{[tag for tag, data in sorted_liked[:10] if data['liked_count'] > 0]}"
+        )
+        log_llm(
+            f"LLM Input: Top 10 disliked tags: "
+            f"{[tag for tag, data in sorted_disliked[:10] if data['disliked_count'] > 0]}"
+        )
 
 
         # prompt = ""
         prompt = f"""
-CUMULATIVE TAGS (all-time net likes):
+CUMULATIVE TAGS (all-time preference counts):
 Top liked: {liked_tags_str if liked_tags_str else "No tags available"}
 Top disliked: {disliked_tags_str if disliked_tags_str else "No tags available"}
 """
@@ -164,8 +204,14 @@ Return JSON with:
 
         response = None
         try:
-            log_llm(f"Analysis started: {total_tags} tags ({len(liked_tags)} liked, {len(disliked_tags)} disliked)")
-            log_llm(f"Prompt: sending {len(liked_tags)} liked tags, {len(disliked_tags)} disliked tags")
+            log_llm(
+                f"Analysis started: {total_tags} tags "
+                f"({len(top_10_positive_net)} net-positive, {len(top_10_negative_net)} net-negative)"
+            )
+            log_llm(
+                f"Prompt: sending {sum(1 for _, data in sorted_liked[:20] if data['liked_count'] > 0)} liked tags, "
+                f"{sum(1 for _, data in sorted_disliked[:20] if data['disliked_count'] > 0)} disliked tags"
+            )
 
             response = await self.client.chat_completion(messages)
             content = response["choices"][0]["message"]["content"]

@@ -195,10 +195,6 @@ async def run_llm_analysis(repository, preference_learner):
     async with repository.async_sessionmaker() as session:
         try:
             tag_freqs = await repository.get_tag_counts_for_llm(session, limit=LLM_MAX_TAGS, min_absolute_count=LLM_TAG_FILTER_MIN_COUNT)
-            tag_counts_formatted = {
-                tag: data["net_count"]
-                for tag, data in tag_freqs.items()
-            }
 
             LLM_RECENT_POSITIVE = int(os.getenv("LLM_RECENT_POSITIVE", "10"))
             LLM_RECENT_NEGATIVE = int(os.getenv("LLM_RECENT_NEGATIVE", "10"))
@@ -213,15 +209,25 @@ async def run_llm_analysis(repository, preference_learner):
                 negative.sort(key=lambda x: x[1])
                 recent_scores = dict(positive[:LLM_RECENT_POSITIVE] + negative[:LLM_RECENT_NEGATIVE])
 
-            learned_profile = await preference_learner.analyze_preferences(tag_counts_formatted, tag_limit=BOORU_TAGS_PER_SEARCH, recent_tag_scores=recent_scores)
+            learned_profile = await preference_learner.analyze_preferences(
+                tag_freqs,
+                tag_limit=BOORU_TAGS_PER_SEARCH,
+                recent_tag_scores=recent_scores,
+            )
             
             db_profile = await repository.get_or_create_profile(session)
             db_profile.preferences = learned_profile.to_dict()
             await repository.save_profile(session, db_profile)
             
-            log_llm(f"CUMULATIVE TAGS (all-time): {', '.join(f'{tag} ({data})' for tag, data in list(tag_counts_formatted.items())[:10])}")
+            log_llm(
+                "CUMULATIVE TAGS (all-time): "
+                + ", ".join(
+                    f"{tag} ({data['liked_count']} likes, {data['disliked_count']} dislikes, net {data['net_count']:+d})"
+                    for tag, data in list(tag_freqs.items())[:10]
+                )
+            )
             log_llm(f"RECENT TAGS (top 10): {', '.join(f'{tag} ({score:+d})' for tag, score in list(recent_scores.items())[:10]) if recent_scores else 'No recent data'}")
-            log_llm(f"Analyzed preferences with tag frequencies: {tag_counts_formatted}")
+            log_llm(f"Analyzed preferences with tag frequencies: {tag_freqs}")
             if db_profile.preferences.get('liked_tags'):
                 log_llm(f"Response: liked_tags={db_profile.preferences.get('liked_tags', [])}")
             if db_profile.preferences.get('disliked_tags'):
