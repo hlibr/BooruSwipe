@@ -91,6 +91,14 @@ async def ensure_double_liked_table_exists(repository):
 
 def _get_settings_path() -> Path:
     """Get the path to the settings file."""
+    env_path = os.getenv("BOORUSWIPE_CONFIG")
+    if env_path:
+        return Path(env_path).expanduser()
+
+    cwd_path = Path.cwd() / "booru.conf"
+    if cwd_path.exists():
+        return cwd_path
+
     return Path(__file__).parent.parent.parent / "booru.conf"
 
 

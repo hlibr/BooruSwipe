@@ -3,8 +3,6 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
-*.pyo
-*.pyd
 
 # Package metadata
 *.egg-info/
@@ -32,7 +30,6 @@ venv/
 booru.conf
 
 # Database
-~/.booruswipe/
 *.db
 *.sqlite
 *.sqlite3
@@ -50,6 +47,8 @@ npm-debug.log*
 # Testing
 .pytest_cache/
 .coverage
+.coverage.*
+coverage.xml
 htmlcov/
 .tox/
 
@@ -57,6 +56,9 @@ htmlcov/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+# Ruff
+.ruff_cache/
 
 # Jupyter Notebook
 .ipynb_checkpoints
