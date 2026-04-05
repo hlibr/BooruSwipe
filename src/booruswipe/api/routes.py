@@ -68,6 +68,7 @@ class ImageResponse(BaseModel):
     id: int
     url: str
     tags: List[str]
+    search_tags: List[str] = []
     sample_url: Optional[str] = None
     width: Optional[int] = None
     height: Optional[int] = None
@@ -281,7 +282,7 @@ async def maybe_trigger_llm(repository, preference_learner):
             await run_llm_analysis(repository, preference_learner)
 
 
-def _build_image_response(image: Any, booru_source: str) -> ImageResponse:
+def _build_image_response(image: Any, booru_source: str, search_tags: Optional[List[str]] = None) -> ImageResponse:
     """Build image response with correct URL (proxy for Gelbooru)."""
     display_url = image.sample_url or image.url
     lower_display_url = display_url.lower()
@@ -303,6 +304,7 @@ def _build_image_response(image: Any, booru_source: str) -> ImageResponse:
         id=image.id,
         url=url,
         tags=image.tags,
+        search_tags=search_tags or [],
         sample_url=image.sample_url if image.sample else None,
         width=image.width,
         height=image.height,
@@ -317,7 +319,7 @@ async def select_next_image(
     preference_learner: Optional[PreferenceLearner],
     seen_ids: set[int],
     swipe_count: int,
-) -> Any:
+) -> tuple[Any, List[str]]:
     """Select next image using full 3-level fallback with delays.
 
     Hierarchy:
@@ -327,7 +329,7 @@ async def select_next_image(
     4. Final → Random image (with 0.5s delays)
 
     Returns:
-        Image object with id, url, tags, sample, width, height
+        Image object with id, url, tags, sample, width, height and the search tags used
     """
     import random
     
@@ -347,11 +349,12 @@ async def select_next_image(
     if RANDOM_IMAGE_CHANCE > 0 and random.randint(1, 100) <= RANDOM_IMAGE_CHANCE:
         log_image(f"Random image triggered ({RANDOM_IMAGE_CHANCE}% chance)")
         try:
-            return await booru_client.get_random_image()
+            return await booru_client.get_random_image(), []
         except Exception as e:
             log_error(f"Random image failed: {type(e).__name__}: {e}, falling back to normal selection")
 
     image = None
+    selected_search_tags: List[str] = []
 
     log_image("Selection started")
 
@@ -400,6 +403,8 @@ async def select_next_image(
             log_image(f"Below LLM threshold ({swipe_count} < {LLM_MIN_SWIPES}) - selecting random seed image")
             random_tag = get_random_tag()
             image = await search_with_pagination([random_tag])
+            if image:
+                selected_search_tags = [random_tag]
 
         # Level 1: LLM recommendations
         search_tags = profile.preferences.get("recommended_search_tags", [])
@@ -410,6 +415,7 @@ async def select_next_image(
             # Try with all tags first
             image = await search_with_pagination(llm_tags)
             if image:
+                selected_search_tags = llm_tags
                 log_image(f"Selected image {image.id}")
             elif len(llm_tags) > 1:
                 # If no results, remove HALF the tags randomly and try once
@@ -418,6 +424,7 @@ async def select_next_image(
                 log_image(f"No results - trying {half_count} random tags: {', '.join(remaining_tags)}")
                 image = await search_with_pagination(remaining_tags)
                 if image:
+                    selected_search_tags = remaining_tags
                     log_image(f"Selected image {image.id}")
                 else:
                     log_image("Level 1 failed - moving to Level 2")
@@ -432,6 +439,7 @@ async def select_next_image(
                 log_image(f"Level 2 - Using top liked tags: {', '.join(top_tags)}")
                 image = await search_with_pagination(top_tags)
                 if image:
+                    selected_search_tags = top_tags
                     log_image(f"Selected image {image.id} with tags: {', '.join(image.tags[:5])}")
 
         # Level 3: Final fallback to random (only if above LLM threshold)
@@ -440,21 +448,25 @@ async def select_next_image(
             log_image("Level 3 - Using random image (no tags available)")
             random_tag = get_random_tag()
             image = await search_with_pagination([random_tag])
+            if image:
+                selected_search_tags = [random_tag]
 
             if image is None:
                 image = await booru_client.get_random_image()
+                selected_search_tags = []
             log_image(f"Selected random image {image.id}")
 
         # Emergency fallback if still no image (below threshold and random returned nothing)
         if image is None:
             log_image("Emergency fallback: getting random image")
             image = await booru_client.get_random_image()
+            selected_search_tags = []
             
     except Exception as e:
         log_error(f"Failed to fetch image from booru: {e}")
         raise
     
-    return image
+    return image, selected_search_tags
 
 
 @router.get("/image", response_model=ImageResponse)
@@ -484,7 +496,7 @@ async def get_image(
             limit=1000,
             exclude_double_liked=DOUBLE_LIKED_NEVER_IGNORE
         )
-        image = await select_next_image(repository, booru_client, preference_learner, seen_ids, _session.swipe_count)
+        image, search_tags = await select_next_image(repository, booru_client, preference_learner, seen_ids, _session.swipe_count)
     except Exception as e:
         log_error(f"Failed to fetch image from booru: {e}")
         raise HTTPException(
@@ -494,13 +506,14 @@ async def get_image(
     
     # Only proxy Gelbooru, direct-link Danbooru
     booru_source = os.getenv("BOORU_SOURCE", "gelbooru").lower()
-    response = _build_image_response(image, booru_source)
+    response = _build_image_response(image, booru_source, search_tags)
 
     _session.current_image = {
         "id": image.id,
         "url": response.url,
         "file_url": image.url,
         "tags": image.tags,
+        "search_tags": response.search_tags,
         "sample_url": image.sample_url if image.sample else None,
         "width": image.width,
         "height": image.height,
@@ -592,16 +605,17 @@ async def record_swipe(
             )
             
             try:
-                image = await select_next_image(repository, booru_client, preference_learner, seen_ids, _session.swipe_count)
+                image, search_tags = await select_next_image(repository, booru_client, preference_learner, seen_ids, _session.swipe_count)
 
                 booru_source = os.getenv("BOORU_SOURCE", "gelbooru").lower()
-                next_image = _build_image_response(image, booru_source)
+                next_image = _build_image_response(image, booru_source, search_tags)
 
                 _session.current_image = {
                     "id": image.id,
                     "url": next_image.url,
                     "file_url": image.url,
                     "tags": image.tags,
+                    "search_tags": next_image.search_tags,
                     "sample_url": image.sample_url if image.sample else None,
                     "width": image.width,
                     "height": image.height,
