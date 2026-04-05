@@ -11,7 +11,8 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 .container {
@@ -22,6 +23,7 @@ body {
     flex-direction: column;
     align-items: center;
     gap: 20px;
+    margin: 20px 0;
 }
 
 .card-container {
@@ -206,6 +208,33 @@ body {
     display: flex;
     gap: 40px;
     margin-top: 20px;
+}
+
+.current-tags {
+    width: 100%;
+    max-width: 400px;
+    min-height: 52px;
+    max-height: 160px;
+    padding: 12px 14px;
+    border: none;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.18);
+    color: white;
+    font-size: 13px;
+    line-height: 1.4;
+    text-align: center;
+    resize: none;
+    overflow-y: auto;
+    appearance: none;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+
+.current-tags:focus {
+    outline: none;
+}
+
+.current-tags::placeholder {
+    color: rgba(255, 255, 255, 0.7);
 }
 
 .control-btn.like-x2-btn,

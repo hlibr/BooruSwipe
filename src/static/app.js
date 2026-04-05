@@ -11,6 +11,7 @@ class SwipeCard {
         this.likesCount = document.getElementById('likes-count');
         this.dislikesCount = document.getElementById('dislikes-count');
         this.postLink = document.getElementById('post-link');
+        this.currentTagsField = document.getElementById('current-tags');
 
         this.currentImage = null;
         this.stats = { likes: 0, dislikes: 0 };
@@ -175,8 +176,10 @@ class SwipeCard {
                 this.image.src = '';
                 this.currentImage = null;
                 this.postLink.style.display = 'none';
+                this.setCurrentTags([]);
             } else {
                 this.currentImage = data;
+                this.setCurrentTags(data.search_tags || []);
                 // Update post link
                 if (data.post_url) {
                     this.postLink.href = data.post_url;
@@ -195,9 +198,16 @@ class SwipeCard {
             console.error('Failed to load image:', error);
             this.currentImage = null;
             this.postLink.style.display = 'none';
+            this.setCurrentTags([]);
         } finally {
             this.showLoading(false);
         }
+    }
+
+    setCurrentTags(tags) {
+        this.currentTagsField.value = tags.length ? tags.join(' ') : 'No active recommendation';
+        this.currentTagsField.style.height = 'auto';
+        this.currentTagsField.style.height = `${this.currentTagsField.scrollHeight}px`;
     }
 
     async displayMedia(data) {
