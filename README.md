@@ -1,4 +1,4 @@
-# BooruSwipe
+# 🔥 BooruSwipe
 
 A Tinder-like image browser for [Gelbooru](https://gelbooru.com) and [Danbooru](https://danbooru.donmai.us) with AI-powered next image selection.
 
