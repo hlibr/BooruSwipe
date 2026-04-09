@@ -76,7 +76,7 @@ class Repository:
                 session.add(swipe)
                 await session.commit()
                 return swipe
-            except Exception as e:
+            except Exception:
                 await session.rollback()
                 raise
 
@@ -111,7 +111,7 @@ class Repository:
                 await session.commit()
                 await session.refresh(profile)
             return profile
-        except Exception as e:
+        except Exception:
             await session.rollback()
             raise
 
@@ -119,14 +119,14 @@ class Repository:
         if session is not None:
             try:
                 await session.commit()
-            except Exception as e:
+            except Exception:
                 await session.rollback()
                 raise
             return
         async with self.async_sessionmaker() as session:
             try:
                 await session.commit()
-            except Exception as e:
+            except Exception:
                 await session.rollback()
                 raise
 
@@ -140,7 +140,6 @@ class Repository:
     async def update_tag_count(self, tag: str, liked: bool, weight: int = 1) -> None:
         async with self.async_sessionmaker() as session:
             try:
-                from sqlalchemy import insert
                 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
                 
                 stmt = sqlite_insert(TagCount).values(
@@ -156,7 +155,7 @@ class Repository:
                 )
                 await session.execute(stmt)
                 await session.commit()
-            except Exception as e:
+            except Exception:
                 await session.rollback()
                 raise
 
@@ -172,7 +171,7 @@ class Repository:
                 ).on_conflict_do_nothing()
                 await session.execute(stmt)
                 await session.commit()
-            except Exception as e:
+            except Exception:
                 await session.rollback()
                 raise
 
@@ -199,7 +198,7 @@ class Repository:
                 ).on_conflict_do_nothing()
                 await session.execute(stmt)
                 await session.commit()
-            except Exception as e:
+            except Exception:
                 await session.rollback()
                 raise
 
@@ -289,7 +288,6 @@ class Repository:
             return await self._get_tag_counts_for_llm_inner(session, limit, min_absolute_count)
 
     async def _get_tag_counts_for_llm_inner(self, session: AsyncSession, limit: int = 100, min_absolute_count: int = 2) -> dict:
-        from sqlalchemy import func
         
         half_limit = limit // 2
         
@@ -321,7 +319,6 @@ class Repository:
 
     async def get_top_liked_tags(self, limit: int = 2) -> List[str]:
         async with self.async_sessionmaker() as session:
-            from sqlalchemy import func
             stmt = select(TagCount).order_by(
                 (TagCount.liked_count - TagCount.disliked_count).desc()
             ).limit(limit)
