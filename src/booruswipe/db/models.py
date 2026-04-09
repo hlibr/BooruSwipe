@@ -1,7 +1,7 @@
 """SQLAlchemy models for BooruSwipe."""
 import json
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import List
 
 from sqlalchemy import String, Text, TypeDecorator
 from sqlalchemy.orm import Mapped, mapped_column

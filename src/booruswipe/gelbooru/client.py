@@ -6,7 +6,7 @@ from urllib.parse import urlencode
 
 import httpx
 
-from .models import Image, Tag
+from .models import Image
 
 logger = logging.getLogger(__name__)
 
