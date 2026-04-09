@@ -1,312 +1,211 @@
 # BooruSwipe
 
-BooruSwipe is a local swipe-based recommender for Gelbooru and Danbooru with a Tinder-like interface.
+A Tinder-like image browser for [Gelbooru](https://gelbooru.com) and [Danbooru](https://danbooru.donmai.us) with AI-powered recommendations.
 
-You swipe left/right on images, the app records tag-level feedback, and an LLM periodically turns that feedback into better search tags.
+Swipe right on images you like, left on ones you don't. BooruSwipe tracks tag-level feedback and uses an LLM to continuously refine its search queries — so the longer you use it, the more it learns what you're into.
 
-
-
-
+> **New to boorus?** Gelbooru and Danbooru are large community image boards, primarily anime and illustration. They tag images extensively, which is what makes tag-based recommendation possible.
 
 https://github.com/user-attachments/assets/6f5cbd00-4947-441a-8e57-eb50b4bd152e
 
+---
 
+## How It Works
 
+1. The first batch of images is random (configurable, default: 10)
+2. As you swipe, BooruSwipe builds a picture of your tag preferences
+3. After enough swipes, it asks an LLM to generate better search tags based on what you've liked and disliked
+4. Those tags drive the next round of image fetching
+5. If no LLM is configured, it falls back to your top liked tags directly
 
+One important nuance: BooruSwipe improves *search queries*, not image ranking. It's adaptive search term generation — it won't score individual images within results, just get better at finding the right pool to pull from.
 
-## What It Does
-
-- Serves images from Gelbooru or Danbooru in a Tinder-like interface
-- Records likes, dislikes, and weighted swipes
-- First images are random (the amount is configurable, default: 10), then it uses an LLM to generate search tags that get used for next image selection
-- If no LLM is connected, simply uses the top liked tags to query the next image
+---
 
 ## Requirements
 
 - Python 3.10+
-- Booru credentials for one of:
-  - Gelbooru (https://gelbooru.com/index.php?page=account&s=options - api_key and user_id, bottom of the page)
-  - Danbooru (https://danbooru.donmai.us/profile - api key and username)
-- One of:
-  - OpenAI-compatible LLM API
-  - Ollama
-  - LM Studio
+- Credentials for one of:
+  - **Gelbooru** — [get your API key and user ID here](https://gelbooru.com/index.php?page=account&s=options) (bottom of the page)
+  - **Danbooru** — [get your API key and username here](https://danbooru.donmai.us/profile)
+- An LLM (optional, but recommended):
+  - Any OpenAI-compatible API
+  - [Ollama](https://ollama.com)
+  - [LM Studio](https://lmstudio.ai)
+  - [llama.cpp](https://github.com/ggml-org/llama.cpp)
+
+---
 
 ## Quick Start
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/hlibr/BooruSwipe
 cd booruswipe
 pip install -e .
 cp booru.conf.example booru.conf
 ```
 
-Edit `booru.conf` and set:
+Edit `booru.conf`. Minimum config for each source:
 
-- `BOORU_SOURCE`
-- booru credentials for the selected source
-- `api_key`
-- `base_url`
-- `model`
-
-Minimum example for Gelbooru:
-
+**Gelbooru:**
 ```bash
 BOORU_SOURCE=gelbooru
 gelbooru_api_key=YOUR_GELBOORU_API_KEY
 gelbooru_user_id=YOUR_GELBOORU_USER_ID
+
+# LLM (optional)
 api_key=your-api-key
 base_url=https://api.openai.com/v1
 model=gpt-4o-mini
 ```
 
-Minimum example for Danbooru:
-
+**Danbooru:**
 ```bash
 BOORU_SOURCE=danbooru
 danbooru_api_key=YOUR_DANBOORU_API_KEY
 danbooru_user_id=YOUR_DANBOORU_LOGIN
+
+# LLM (optional)
 api_key=your-api-key
 base_url=https://api.openai.com/v1
 model=gpt-4o-mini
 ```
 
-Then start the app:
+Then run:
 
 ```bash
 python -m booruswipe
 ```
 
-Open [http://localhost:8000](http://localhost:8000) and swipe a few times before expecting the recommendations to adapt.
+Open [http://localhost:8000](http://localhost:8000). Give it at least 10 swipes before expecting recommendations to kick in.
 
-Run with verbose logs:
+For verbose logs:
 
 ```bash
 python -m booruswipe --verbose
 ```
 
+---
+
 ## Docker
-
-Docker is supported as an alternative local setup path.
-
-First create the config file:
 
 ```bash
 cp booru.conf.example booru.conf
-```
-
-Edit `booru.conf` before starting the container.
-
-Then build and run:
-
-```bash
+# edit booru.conf, then:
 docker compose build
 docker compose up
 ```
 
-The compose setup:
+The compose setup mounts `./booru.conf` into the container, persists the SQLite database in a named volume, and runs with `--verbose`.
 
-- mounts `./booru.conf` into the container at `/app/booru.conf`
-- persists the SQLite database in a named Docker volume
-- runs the app with `--verbose`
-
-Open [http://localhost:8000](http://localhost:8000).
-
-Important: if your LLM runs on the host machine, do not use `localhost` in `booru.conf` when running through Docker.
-
-Inside the container:
-
-- `localhost` means the container itself
-- host services should be reached via `host.docker.internal`
-
-Examples:
+**If your LLM runs locally**, don't use `localhost` in `booru.conf` — inside Docker that refers to the container itself. Use `host.docker.internal` instead:
 
 ```bash
-# LM Studio running on host
+# LM Studio on host
 base_url=http://host.docker.internal:1234/v1
 
-# Ollama running on host
+# Ollama on host
 base_url=http://host.docker.internal:11434/v1
 ```
 
-If you change only `booru.conf`, rebuild is not needed. Restart is enough:
+If you only change `booru.conf`, a full rebuild isn't needed — just restart:
 
 ```bash
 docker compose restart
 ```
 
-Useful commands:
+Other useful commands:
 
 ```bash
 docker compose logs -f
 docker compose down
-docker compose down -v
+docker compose down -v   # also removes the database volume
 ```
+
+---
 
 ## Configuration
 
-Configuration lives in `booru.conf`.
+All configuration lives in `booru.conf`.
 
-### Booru Source
-
-```bash
-BOORU_SOURCE=gelbooru
-```
-
-Supported values:
-
-- `danbooru`
-- `gelbooru`
-
-### Gelbooru
-
-Gelbooru credentials are required.
+### Booru source
 
 ```bash
-gelbooru_api_key=YOUR_GELBOORU_API_KEY
-gelbooru_user_id=YOUR_GELBOORU_USER_ID
+BOORU_SOURCE=gelbooru  # or: danbooru
 ```
 
-### Danbooru
+### LLM providers
 
-Danbooru credentials are required. `danbooru_user_id` should contain your Danbooru login name, despite the legacy variable name.
-
-```bash
-danbooru_api_key=YOUR_DANBOORU_API_KEY
-danbooru_user_id=YOUR_DANBOORU_LOGIN
-```
-
-### LLM
-
-```bash
-api_key=your-api-key
-base_url=https://api.openai.com/v1
-model=gpt-4o-mini
-```
-
-Example providers:
-
-| Provider | api_key | base_url | model |
-| --- | --- | --- | --- |
+| Provider | `api_key` | `base_url` | `model` |
+|---|---|---|---|
 | OpenAI | `sk-...` | `https://api.openai.com/v1` | `gpt-4o-mini` |
 | Ollama | `ollama` | `http://localhost:11434/v1` | `llama3.2` |
 | LM Studio | `lm-studio` | `http://localhost:1234/v1` | `local-model` |
 
-### Tuning
+### All settings
 
-Current defaults:
+| Setting | Required | Default | Description |
+|---|---|---|---|
+| `BOORU_SOURCE` | Yes | `gelbooru` | Which booru to use (`gelbooru` or `danbooru`) |
+| `gelbooru_api_key` | If Gelbooru | — | Gelbooru API key |
+| `gelbooru_user_id` | If Gelbooru | — | Gelbooru user ID |
+| `danbooru_api_key` | If Danbooru | — | Danbooru API key |
+| `danbooru_user_id` | If Danbooru | — | Danbooru login name |
+| `api_key` | No | — | LLM provider API key |
+| `base_url` | No | `https://api.openai.com/v1` | LLM provider base URL |
+| `model` | No | — | Model name for chat completions |
+| `LLM_MIN_SWIPES` | No | `10` | Swipes required before LLM kicks in |
+| `LLM_MAX_TAGS` | No | `30` | Max cumulative tags sent to the LLM |
+| `LLM_TAG_FILTER_MIN_COUNT` | No | `1` | Minimum tag score to include in LLM input |
+| `LLM_USE_STRUCTURED_OUTPUT` | No | `true` | Validate LLM output against response schema |
+| `LLM_RECENT_POSITIVE` | No | `10` | Recent positive tags sent to LLM |
+| `LLM_RECENT_NEGATIVE` | No | `10` | Recent negative tags sent to LLM |
+| `LLM_RECENT_FILTER_CUMULATIVE_LIKES` | No | `true` | Filter recent positives already in cumulative likes before sending to LLM |
+| `BOORU_TAGS_PER_SEARCH` | No | `5` | Max tags used in the primary search query |
+| `BOORU_TAGS_PER_SEARCH_FALLBACK` | No | `3` | Max tags used in the fallback search query |
+| `RANDOM_IMAGE_CHANCE` | No | `5` | % chance to show a random image instead of a recommendation |
+| `DOUBLE_LIKED_NEVER_IGNORE` | No | `false` | Exempt double-liked images from repeat filtering |
+| `BOORU_SEARCH_LIMIT` | No | `100` | Images requested per search page |
+| `BOORU_SEARCH_PAGES` | No | `5` | Pages to scan before giving up |
+| `BOORU_SEARCH_SLEEP` | No | `0.15` | Delay between paginated requests (seconds) |
 
-```bash
-LLM_MIN_SWIPES=10
-LLM_MAX_TAGS=30
-LLM_TAG_FILTER_MIN_COUNT=1
-LLM_USE_STRUCTURED_OUTPUT=true
-LLM_RECENT_POSITIVE=10
-LLM_RECENT_NEGATIVE=10
-LLM_RECENT_FILTER_CUMULATIVE_LIKES=true
-BOORU_TAGS_PER_SEARCH=5
-BOORU_TAGS_PER_SEARCH_FALLBACK=3
-RANDOM_IMAGE_CHANCE=5
-DOUBLE_LIKED_NEVER_IGNORE=false
-BOORU_SEARCH_LIMIT=100
-BOORU_SEARCH_PAGES=5
-BOORU_SEARCH_SLEEP=0.15
-```
+---
 
-All supported settings:
+## Data
 
-| Setting | Required | Default | Meaning |
-| --- | --- | --- | --- |
-| `api_key` | No | none | API key for the LLM provider |
-| `base_url` | Yes | `https://api.openai.com/v1` | Base URL for the LLM provider |
-| `model` | Yes | none | Model name used for chat completions |
-| `BOORU_SOURCE` | Yes | `gelbooru` | Which booru backend to use |
-| `danbooru_api_key` | If `BOORU_SOURCE=danbooru` | none | Danbooru API key |
-| `danbooru_user_id` | If `BOORU_SOURCE=danbooru` | none | Danbooru login name |
-| `gelbooru_api_key` | If `BOORU_SOURCE=gelbooru` | none | Gelbooru API key |
-| `gelbooru_user_id` | If `BOORU_SOURCE=gelbooru` | none | Gelbooru user ID |
-| `LLM_MIN_SWIPES` | No | `10` | Swipes required before LLM analysis starts |
-| `LLM_MAX_TAGS` | No | `30` | Max number of cumulative tags sent to the LLM |
-| `LLM_TAG_FILTER_MIN_COUNT` | No | `1` | Minimum absolute tag score to include in LLM input |
-| `LLM_USE_STRUCTURED_OUTPUT` | No | `true` | Whether to validate LLM output against the response schema |
-| `LLM_RECENT_POSITIVE` | No | `10` | Number of top recent positive tags sent to the LLM |
-| `LLM_RECENT_NEGATIVE` | No | `10` | Number of top recent negative tags sent to the LLM |
-| `LLM_RECENT_FILTER_CUMULATIVE_LIKES` | No | `true` | Whether recent positive tags already present in cumulative likes should be filtered out before sending recent trend data to the LLM |
-| `BOORU_TAGS_PER_SEARCH` | No | `5` | Max tags used in the primary booru search |
-| `BOORU_TAGS_PER_SEARCH_FALLBACK` | No | `3` | Max number of top liked tags used in the fallback search query |
-| `RANDOM_IMAGE_CHANCE` | No | `5` | Percent chance to skip recommendation logic and show a random image |
-| `DOUBLE_LIKED_NEVER_IGNORE` | No | `false` | Whether double-liked images are exempt from repeat filtering |
-| `BOORU_SEARCH_LIMIT` | No | `100` | Images requested per booru search page |
-| `BOORU_SEARCH_PAGES` | No | `5` | Number of pages to scan before giving up |
-| `BOORU_SEARCH_SLEEP` | No | `0.15` | Delay between paginated booru requests in seconds |
+BooruSwipe stores everything locally in a SQLite database:
 
-## API Overview
+- **`swipes`** — each swipe event with booru source, tags, URLs, and weight
+- **`tag_counts`** — long-term like/dislike counters per tag
+- **`swiped_images`** — seen image IDs to reduce repeats
+- **`double_liked_images`** — IDs exempted from repeat filtering
+- **`preference_profiles`** — latest LLM-generated tag recommendations
 
-Main endpoints:
-
-- `GET /api/image`
-- `POST /api/swipe`
-- `GET /api/stats`
-- `GET /api/settings`
-- `POST /api/settings`
-- `POST /api/settings/test`
-- `GET /health`
-
-Notes:
-
-- For Gelbooru, image display goes through backend proxying to avoid hotlink issues.
-- For Danbooru, the frontend gets the direct image URL.
-- Swipes store both `post_url` and original `file_url`.
-
-## Data Model
-
-The local SQLite database stores:
-
-- `swipes`: each swipe event, booru source, tags, post URL, file URL, weight
-- `tag_counts`: long-term like/dislike counters per tag
-- `swiped_images`: IDs used to reduce repeats
-- `double_liked_images`: IDs exempted from repeat filtering
-- `preference_profiles`: latest saved LLM output
+---
 
 ## Development
 
-Run tests:
-
 ```bash
-pytest -q
+pytest -q                          # run tests
+python -m booruswipe --reset-db    # wipe the local database
 ```
 
-Reset the database:
+---
 
-```bash
-python -m booruswipe --reset-db
-```
+## Limitations
 
-## How Recommendation Works
+- **Single-user:** session state lives in process memory, not per-user sessions
+- **No candidate ranking:** recommendation improves search terms, not image ordering within results
 
-The selection loop is currently:
+## Possible improvements
 
-1. Pull cumulative tag counts from swipe history
-2. Pull recent tag scores from the latest swipes
-3. Ask the LLM for recommended search tags
-4. Search the booru with those tags
-5. If that fails, fall back to top liked tags
-6. If that fails, fall back to random
+- Score retrieved images instead of picking randomly from search results
+- Track tag *combinations*, not just independent tags
+- Smarter exploration beyond random chance
+- Per-user session handling
+- Live integration tests for Danbooru, Gelbooru, and LLM providers
 
-Important detail: the app improves search queries, but it does not yet rank candidate images after retrieval. It is closer to "adaptive search term generation" than "best-image scoring."
-
-## Current limitations:
-
-- Single-user oriented: request/session state is kept in process memory
-- Recommendation quality is heuristic and tag-based
-
-## Possible Next Improvements
-
-- Score retrieved candidates instead of picking randomly from search results
-- Track tag pairs / tag combinations, not only independent tag counts
-- Add smarter exploration instead of relying mostly on random chance
-- Replace global in-memory session state with per-user session handling
-- Add live integration tests for Danbooru, Gelbooru, and LLM providers
+---
 
 ## License
 
