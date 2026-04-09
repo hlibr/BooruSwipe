@@ -3,7 +3,7 @@
 import logging
 from typing import AsyncGenerator, Optional, Union
 
-from fastapi import Depends, HTTPException, status
+from fastapi import HTTPException, status
 
 from booruswipe.db.repository import Repository
 from booruswipe.gelbooru.client import DanbooruClient, GelbooruClient

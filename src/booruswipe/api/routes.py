@@ -7,10 +7,20 @@ from typing import Any, Dict, List, Optional, Union
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, status
+import httpx
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from fastapi.responses import Response
 from pydantic import BaseModel
-import httpx
+
+from booruswipe.api.deps import (
+    check_booru_client,
+    get_booru_client,
+    get_optional_preference_learner,
+    get_repository,
+)
+from booruswipe.db.repository import Repository
+from booruswipe.gelbooru.client import DanbooruClient, GelbooruClient
+from booruswipe.llm.preference_learner import PreferenceLearner
 
 logger = logging.getLogger(__name__)
 
@@ -41,19 +51,6 @@ def get_random_tag() -> str:
         return "sort:random"
     else:
         return "random:1"
-
-from booruswipe.db.repository import Repository
-from booruswipe.gelbooru.client import DanbooruClient, GelbooruClient
-from booruswipe.llm.preference_learner import PreferenceLearner
-from booruswipe.db.models import PreferenceProfile as PreferenceProfileModel
-from booruswipe.api.deps import (
-    get_repository,
-    get_booru_client,
-    get_optional_preference_learner,
-    check_booru_client,
-    is_verbose_mode,
-)
-from fastapi import BackgroundTasks
 
 
 router = APIRouter(prefix="/api")
@@ -112,7 +109,7 @@ async def serve_image(
                 sample_url = image_data.sample_url
                 if sample_url:
                     response = await client.get(sample_url, headers=headers)
-            except:
+            except Exception:
                 pass
         
         # Final check - if still not an image or video, return error
@@ -250,7 +247,7 @@ async def run_llm_analysis(repository, preference_learner):
                 log_llm(f"Response: disliked_tags={db_profile.preferences.get('disliked_tags', [])}")
             log_llm(f"Response: recommended_search_tags={db_profile.preferences.get('recommended_search_tags', [])}")
             log_llm_summary(f"preferences_summary='{db_profile.preferences.get('preferences_summary', '')}'")
-            log_llm(f"Profile saved to database")
+            log_llm("Profile saved to database")
         except Exception as e:
             log_llm(f"LLM analysis failed: {type(e).__name__}: {str(e)}")
             import traceback
@@ -559,8 +556,6 @@ async def record_swipe(
     log_swipe(f"Received: direction={swipe_request.direction}, image_id={swipe_request.image_id}, tag_count={len(current['tags'])}")
     
     try:
-        LLM_MIN_SWIPES = int(os.getenv("LLM_MIN_SWIPES", "10"))
-        BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "5"))
         booru_source = os.getenv("BOORU_SOURCE", "gelbooru").lower()
         await repository.save_swipe(
             booru=booru_source,

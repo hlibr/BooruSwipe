@@ -12,7 +12,6 @@ from typing import Optional
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
 
 from booruswipe.db.repository import Repository
 from booruswipe.gelbooru.client import DanbooruClient, GelbooruClient
@@ -273,7 +272,6 @@ if _STATIC_DIR.exists():
 
 
 def main():
-    import argparse
     import uvicorn
 
     parser = argparse.ArgumentParser(description="BooruSwipe - Danbooru image preference learning application")
