@@ -1,6 +1,6 @@
 """SQLAlchemy models for BooruSwipe."""
 import json
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from sqlalchemy import String, Text, TypeDecorator
@@ -53,7 +53,7 @@ class Swipe(Base):
     liked: Mapped[bool] = mapped_column(nullable=False)
     weight: Mapped[int] = mapped_column(nullable=False, default=1)
     timestamp: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(UTC),
+        default=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
 
@@ -66,12 +66,12 @@ class PreferenceProfile(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     preferences: Mapped[dict] = mapped_column(JSONDict(), nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(UTC),
+        default=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
     updated_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(UTC),
-        onupdate=lambda: datetime.now(UTC),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
 
@@ -85,8 +85,8 @@ class TagCount(Base):
     liked_count: Mapped[int] = mapped_column(default=0, nullable=False)
     disliked_count: Mapped[int] = mapped_column(default=0, nullable=False)
     last_updated: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(UTC),
-        onupdate=lambda: datetime.now(UTC),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
 
@@ -99,7 +99,7 @@ class SwipedImage(Base):
     image_id: Mapped[int] = mapped_column(primary_key=True)
     liked: Mapped[bool] = mapped_column(nullable=False)
     swiped_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(UTC),
+        default=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
 
@@ -111,6 +111,6 @@ class DoubleLikedImage(Base):
 
     image_id: Mapped[int] = mapped_column(primary_key=True)
     liked_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(UTC),
+        default=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
