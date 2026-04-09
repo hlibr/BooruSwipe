@@ -20,6 +20,8 @@ https://github.com/user-attachments/assets/6f5cbd00-4947-441a-8e57-eb50b4bd152e
 
 One important nuance: BooruSwipe improves *search queries*, not image ranking. It's adaptive search term generation — it won't score individual images within results, just get better at finding the right pool to pull from.
 
+You can also submit stronger feedback with the `x2` buttons. Holding an `x2` button opens `x3` / `x4` / `x5` multipliers for even stronger like or dislike signals.
+
 ---
 
 ## Requirements
