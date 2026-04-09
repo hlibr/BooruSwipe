@@ -10,7 +10,7 @@ body {
     min-height: 100vh;
     display: flex;
     justify-content: center;
-    align-items: center;
+    align-items: flex-start;
     overflow-x: hidden;
     overflow-y: auto;
 }
@@ -23,7 +23,7 @@ body {
     flex-direction: column;
     align-items: center;
     gap: 20px;
-    margin: 20px 0;
+    margin: 0 0 20px;
 }
 
 .card-container {
