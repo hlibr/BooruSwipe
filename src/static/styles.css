@@ -206,8 +206,10 @@ body {
 
 .controls {
     display: flex;
-    gap: 40px;
-    margin-top: 20px;
+    width: 100%;
+    justify-content: center;
+    gap: 18px;
+    align-items: center;
 }
 
 .current-tags {
@@ -224,9 +226,10 @@ body {
     line-height: 1.4;
     text-align: center;
     resize: none;
-    overflow-y: auto;
+    overflow: hidden;
     appearance: none;
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+    touch-action: pan-y;
 }
 
 .current-tags:focus {
@@ -237,73 +240,202 @@ body {
     color: rgba(255, 255, 255, 0.7);
 }
 
-.control-btn.like-x2-btn,
-.control-btn.dislike-x2-btn {
-    width: 50px;
-    height: 50px;
-    font-size: 20px;
-    align-self: center;
+.control-menu {
+    position: relative;
+    width: 76px;
+    height: 76px;
+    flex: 0 0 76px;
+    overflow: visible;
 }
 
-.control-btn.like-x2-btn {
-    background: white;
+.control-menu.open {
+    z-index: 12;
+}
+
+.menu-hit-area {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 188px;
+    height: 164px;
+    transform: translate(-50%, -56%);
+    border-radius: 999px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.control-menu.open .menu-hit-area {
+    pointer-events: auto;
+}
+
+.menu-trigger {
+    position: relative;
+    z-index: 2;
+}
+
+.menu-option {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 54px;
+    height: 54px;
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    font-size: 17px;
+    font-weight: 700;
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    box-shadow: 0 14px 34px rgba(9, 12, 22, 0.22);
+    transform: translate(-50%, -50%) scale(0.68);
+    transition: transform 0.16s ease, opacity 0.16s ease, background 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+.control-menu.open .menu-option {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.control-menu.open .menu-option:nth-of-type(2) {
+    transform: translate(-150%, -124%) scale(1);
+}
+
+.control-menu.open .menu-option:nth-of-type(3) {
+    transform: translate(-50%, -180%) scale(1);
+}
+
+.control-menu.open .menu-option:nth-of-type(4) {
+    transform: translate(50%, -124%) scale(1);
+}
+
+.control-menu[data-liked="true"] .menu-option {
     color: #4caf50;
 }
 
-.control-btn.like-x2-btn:hover {
-    background: #4caf50;
+.control-menu[data-liked="false"] .menu-option {
+    color: #f44336;
+}
+
+.control-menu[data-liked="true"] .menu-option.active {
+    background: linear-gradient(180deg, #68d97b 0%, #3bb956 100%);
+    color: white;
+    box-shadow: 0 14px 32px rgba(59, 185, 86, 0.34);
+}
+
+.control-menu[data-liked="true"] .menu-option.pressed {
+    background: linear-gradient(180deg, #68d97b 0%, #3bb956 100%);
+    color: white;
+    box-shadow: 0 14px 32px rgba(59, 185, 86, 0.34);
+}
+
+.control-menu[data-liked="false"] .menu-option.active {
+    background: linear-gradient(180deg, #ff7a6f 0%, #f04438 100%);
+    color: white;
+    box-shadow: 0 14px 32px rgba(240, 68, 56, 0.34);
+}
+
+.control-menu[data-liked="false"] .menu-option.pressed {
+    background: linear-gradient(180deg, #ff7a6f 0%, #f04438 100%);
+    color: white;
+    box-shadow: 0 14px 32px rgba(240, 68, 56, 0.34);
+}
+
+.control-btn.like-x2-btn,
+.control-btn.dislike-x2-btn {
+    width: 76px;
+    height: 76px;
+    font-size: 18px;
+    letter-spacing: 0.04em;
+}
+
+.control-btn.like-x2-btn {
+    background: linear-gradient(180deg, #68d97b 0%, #3bb956 100%);
     color: white;
 }
 
 .control-btn.dislike-x2-btn {
-    background: white;
-    color: #f44336;
-}
-
-.control-btn.dislike-x2-btn:hover {
-    background: #f44336;
+    background: linear-gradient(180deg, #ff7a6f 0%, #f04438 100%);
     color: white;
 }
 
 .control-btn {
-    width: 70px;
-    height: 70px;
+    width: 76px;
+    height: 76px;
     border-radius: 50%;
-    border: none;
-    font-size: 32px;
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    font-size: 30px;
+    font-weight: 700;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
     display: flex;
     justify-content: center;
     align-items: center;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 14px 34px rgba(9, 12, 22, 0.22);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+.control-btn:focus,
+.control-btn:focus-visible,
+.menu-option:focus,
+.menu-option:focus-visible {
+    outline: none;
 }
 
 .control-btn:hover {
-    transform: scale(1.1);
+    transform: translateY(-2px) scale(1.04);
 }
 
 .control-btn:active {
-    transform: scale(0.95);
+    transform: scale(0.97);
+}
+
+.control-menu.open .menu-trigger {
+    transform: translateY(-2px) scale(1.04);
+}
+
+.like-btn.pressed,
+.like-x2-btn.pressed {
+    transform: scale(0.97);
+    background: linear-gradient(180deg, #ffffff 0%, #eefaf1 100%) !important;
+    color: #319d48 !important;
+    border-color: rgba(59, 185, 86, 0.55) !important;
+    box-shadow: 0 12px 26px rgba(59, 185, 86, 0.22) !important;
+}
+
+.dislike-btn.pressed,
+.dislike-x2-btn.pressed {
+    transform: scale(0.97);
+    background: linear-gradient(180deg, #ffffff 0%, #fff0ef 100%) !important;
+    color: #d93a2f !important;
+    border-color: rgba(240, 68, 56, 0.55) !important;
+    box-shadow: 0 12px 26px rgba(240, 68, 56, 0.22) !important;
 }
 
 .dislike-btn {
-    background: white;
-    color: #f44336;
-}
-
-.dislike-btn:hover {
-    background: #f44336;
+    background: linear-gradient(180deg, #ff7a6f 0%, #f04438 100%);
     color: white;
 }
 
 .like-btn {
-    background: white;
-    color: #4caf50;
-}
-
-.like-btn:hover {
-    background: #4caf50;
+    background: linear-gradient(180deg, #68d97b 0%, #3bb956 100%);
     color: white;
 }
 
@@ -346,6 +478,202 @@ body {
 
 .settings-btn:active {
     transform: scale(0.95);
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .control-menu[data-liked="true"] .menu-option:hover {
+        background: linear-gradient(180deg, #68d97b 0%, #3bb956 100%);
+        color: white;
+        box-shadow: 0 14px 32px rgba(59, 185, 86, 0.34);
+    }
+
+    .control-menu[data-liked="false"] .menu-option:hover {
+        background: linear-gradient(180deg, #ff7a6f 0%, #f04438 100%);
+        color: white;
+        box-shadow: 0 14px 32px rgba(240, 68, 56, 0.34);
+    }
+
+    .control-btn.like-x2-btn:hover {
+        background: linear-gradient(180deg, #ffffff 0%, #eefaf1 100%);
+        color: #319d48;
+        border-color: rgba(59, 185, 86, 0.45);
+    }
+
+    .control-menu.open .control-btn.like-x2-btn {
+        background: linear-gradient(180deg, #ffffff 0%, #eefaf1 100%);
+        color: #319d48;
+        border-color: rgba(59, 185, 86, 0.45);
+    }
+
+    .control-btn.dislike-x2-btn:hover {
+        background: linear-gradient(180deg, #ffffff 0%, #fff0ef 100%);
+        color: #d93a2f;
+        border-color: rgba(240, 68, 56, 0.45);
+    }
+
+    .control-menu.open .control-btn.dislike-x2-btn {
+        background: linear-gradient(180deg, #ffffff 0%, #fff0ef 100%);
+        color: #d93a2f;
+        border-color: rgba(240, 68, 56, 0.45);
+    }
+
+    .dislike-btn:hover {
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 240, 239, 0.94) 100%);
+        color: #d93a2f;
+        border-color: rgba(240, 68, 56, 0.45);
+    }
+
+    .like-btn:hover {
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(238, 250, 241, 0.94) 100%);
+        color: #319d48;
+        border-color: rgba(59, 185, 86, 0.45);
+    }
+}
+
+@media (hover: none), (pointer: coarse) {
+    .control-btn:hover,
+    .menu-option:hover {
+        transform: none;
+    }
+
+    .control-btn.like-x2-btn:hover {
+        background: linear-gradient(180deg, #68d97b 0%, #3bb956 100%);
+        color: white;
+        border-color: rgba(255, 255, 255, 0.45);
+    }
+
+    .control-btn.dislike-x2-btn:hover {
+        background: linear-gradient(180deg, #ff7a6f 0%, #f04438 100%);
+        color: white;
+        border-color: rgba(255, 255, 255, 0.45);
+    }
+
+    .like-btn:hover {
+        background: linear-gradient(180deg, #68d97b 0%, #3bb956 100%);
+        color: white;
+        border-color: rgba(255, 255, 255, 0.45);
+    }
+
+    .dislike-btn:hover {
+        background: linear-gradient(180deg, #ff7a6f 0%, #f04438 100%);
+        color: white;
+        border-color: rgba(255, 255, 255, 0.45);
+    }
+
+    .control-menu[data-liked="true"] .menu-option:hover,
+    .control-menu[data-liked="false"] .menu-option:hover {
+        color: inherit;
+        background: rgba(255, 255, 255, 0.95);
+        box-shadow: 0 14px 34px rgba(9, 12, 22, 0.22);
+    }
+
+    .control-btn:focus,
+    .control-btn:focus-visible,
+    .menu-option:focus,
+    .menu-option:focus-visible {
+        outline: none;
+    }
+
+    .like-btn:active,
+    .like-x2-btn:active {
+        transform: scale(0.97);
+        background: linear-gradient(180deg, #ffffff 0%, #eefaf1 100%) !important;
+        color: #319d48 !important;
+        border-color: rgba(59, 185, 86, 0.55) !important;
+        box-shadow: 0 12px 26px rgba(59, 185, 86, 0.22) !important;
+    }
+
+    .dislike-btn:active,
+    .dislike-x2-btn:active {
+        transform: scale(0.97);
+        background: linear-gradient(180deg, #ffffff 0%, #fff0ef 100%) !important;
+        color: #d93a2f !important;
+        border-color: rgba(240, 68, 56, 0.55) !important;
+        box-shadow: 0 12px 26px rgba(240, 68, 56, 0.22) !important;
+    }
+
+    .control-menu[data-liked="true"] .menu-option:active {
+        transform: translate(-50%, -50%) scale(0.94);
+        background: linear-gradient(180deg, #68d97b 0%, #3bb956 100%);
+        color: white;
+        box-shadow: 0 14px 32px rgba(59, 185, 86, 0.34);
+    }
+
+    .control-menu[data-liked="false"] .menu-option:active {
+        transform: translate(-50%, -50%) scale(0.94);
+        background: linear-gradient(180deg, #ff7a6f 0%, #f04438 100%);
+        color: white;
+        box-shadow: 0 14px 32px rgba(240, 68, 56, 0.34);
+    }
+
+    .control-menu.open .menu-trigger {
+        transform: scale(1.02);
+    }
+}
+
+@media (max-width: 480px) {
+    .container {
+        padding: 16px 12px;
+    }
+
+    .controls {
+        justify-content: space-between;
+        gap: 8px;
+    }
+
+    .control-btn,
+    .control-btn.like-x2-btn,
+    .control-btn.dislike-x2-btn,
+    .control-menu {
+        width: 66px;
+        height: 66px;
+        flex-basis: 66px;
+    }
+
+    .control-btn {
+        font-size: 26px;
+    }
+
+    .control-btn.like-x2-btn,
+    .control-btn.dislike-x2-btn {
+        font-size: 16px;
+    }
+
+    .menu-hit-area {
+        width: 176px;
+        height: 176px;
+        transform: translate(-50%, -50%);
+    }
+
+    .menu-option {
+        width: 48px;
+        height: 48px;
+        font-size: 15px;
+    }
+
+    .control-menu[data-liked="false"].open .menu-option:nth-of-type(2) {
+        transform: translate(42%, -136%) scale(1);
+    }
+
+    .control-menu[data-liked="false"].open .menu-option:nth-of-type(3) {
+        transform: translate(108%, -50%) scale(1);
+    }
+
+    .control-menu[data-liked="false"].open .menu-option:nth-of-type(4) {
+        transform: translate(42%, 36%) scale(1);
+    }
+
+    .control-menu[data-liked="true"].open .menu-option:nth-of-type(2) {
+        transform: translate(-142%, -136%) scale(1);
+    }
+
+    .control-menu[data-liked="true"].open .menu-option:nth-of-type(3) {
+        transform: translate(-208%, -50%) scale(1);
+    }
+
+    .control-menu[data-liked="true"].open .menu-option:nth-of-type(4) {
+        transform: translate(-142%, 36%) scale(1);
+    }
 }
 
 .modal {

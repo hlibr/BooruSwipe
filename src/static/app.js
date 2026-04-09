@@ -15,6 +15,13 @@ class SwipeCard {
 
         this.currentImage = null;
         this.stats = { likes: 0, dislikes: 0 };
+        this.multiplierMenus = [];
+        this.activeMultiplierMenu = null;
+        this.hoverCapableQuery = window.matchMedia('(hover: hover) and (pointer: fine)');
+        this.lastTouchInteractionAt = 0;
+        this.touchMenuOpenDelayMs = 200;
+        this.touchLongPressCancelMs = 1000;
+        this.touchDragOpenDistance = 12;
 
         this.isDragging = false;
         this.startX = 0;
@@ -35,13 +42,11 @@ class SwipeCard {
     attachEventListeners() {
         const likeBtn = document.getElementById('like-btn');
         const dislikeBtn = document.getElementById('dislike-btn');
-        const likeX2Btn = document.getElementById('like-x2-btn');
-        const dislikeX2Btn = document.getElementById('dislike-x2-btn');
         
         likeBtn.addEventListener('click', () => this.handleSwipe(true, 1));
         dislikeBtn.addEventListener('click', () => this.handleSwipe(false, 1));
-        likeX2Btn.addEventListener('click', () => this.handleSwipe(true, 2));
-        dislikeX2Btn.addEventListener('click', () => this.handleSwipe(false, 2));
+        [likeBtn, dislikeBtn].forEach((button) => this.attachButtonBlurHandlers(button));
+        this.initMultiplierMenus();
         
         this.card.addEventListener('mousedown', this.handleStart.bind(this));
         this.card.addEventListener('touchstart', this.handleStart.bind(this), { passive: false });
@@ -52,6 +57,364 @@ class SwipeCard {
         document.addEventListener('mouseup', this.handleEnd.bind(this));
         document.addEventListener('touchend', this.handleEnd.bind(this), { passive: false });
         document.addEventListener('touchcancel', this.handleEnd.bind(this));
+    }
+
+    initMultiplierMenus() {
+        this.multiplierMenus = Array.from(document.querySelectorAll('.control-menu')).map((container) => {
+            const trigger = container.querySelector('.menu-trigger');
+            const options = Array.from(container.querySelectorAll('.menu-option'));
+            const menu = {
+                container,
+                trigger,
+                options,
+                liked: container.dataset.liked === 'true',
+                pointerId: null,
+                isOpen: false,
+                suppressClick: false,
+                activeWeight: null,
+                openTimer: null,
+                longPressTimer: null,
+                ignoreNextClick: false,
+                openedDuringPointer: false,
+                leftTriggerDuringPointer: false,
+                longPressCanceled: false,
+                pointerReleased: false,
+                startPointerX: 0,
+                startPointerY: 0,
+                lastPointerX: 0,
+                lastPointerY: 0,
+            };
+
+            trigger.addEventListener('pointerdown', (event) => this.handleMultiplierPointerDown(menu, event));
+            trigger.addEventListener('pointerup', (event) => this.handleMultiplierPointerUp(event));
+            trigger.addEventListener('pointercancel', (event) => this.handleMultiplierPointerCancel(event));
+            trigger.addEventListener('click', (event) => this.handleMultiplierTriggerClick(menu, event));
+            trigger.addEventListener('mouseenter', () => {
+                if (this.hoverCapableQuery.matches && Date.now() - this.lastTouchInteractionAt > 800) {
+                    this.openMultiplierMenu(menu);
+                }
+            });
+
+            container.addEventListener('mouseleave', () => {
+                if (!menu.pointerId) {
+                    this.closeMultiplierMenu(menu);
+                }
+            });
+
+            options.forEach((option) => {
+                this.attachButtonBlurHandlers(option);
+                option.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    this.selectMultiplierOption(menu, Number(option.dataset.weight));
+                });
+            });
+
+            return menu;
+        });
+
+        document.addEventListener('pointermove', (event) => this.handleMultiplierPointerMove(event));
+        document.addEventListener('pointerup', (event) => this.handleMultiplierPointerUp(event));
+        document.addEventListener('pointercancel', (event) => this.handleMultiplierPointerCancel(event));
+        document.addEventListener('pointerdown', (event) => this.handleGlobalPointerDown(event));
+    }
+
+    handleMultiplierPointerDown(menu, event) {
+        if (event.pointerType === 'mouse' && event.button !== 0) {
+            return;
+        }
+
+        if (event.pointerType !== 'mouse') {
+            this.lastTouchInteractionAt = Date.now();
+        }
+
+        this.closeOtherMultiplierMenus(menu);
+        menu.pointerId = event.pointerId;
+        menu.suppressClick = event.pointerType !== 'mouse';
+        menu.ignoreNextClick = event.pointerType !== 'mouse';
+        menu.activeWeight = null;
+        menu.openedDuringPointer = false;
+        menu.leftTriggerDuringPointer = false;
+        menu.longPressCanceled = false;
+        menu.pointerReleased = false;
+        menu.startPointerX = event.clientX;
+        menu.startPointerY = event.clientY;
+        menu.lastPointerX = event.clientX;
+        menu.lastPointerY = event.clientY;
+        this.activeMultiplierMenu = menu;
+
+        if (event.pointerType !== 'mouse' && menu.trigger.setPointerCapture) {
+            menu.trigger.setPointerCapture(event.pointerId);
+        }
+
+        if (event.pointerType !== 'mouse') {
+            event.preventDefault();
+            menu.trigger.classList.add('pressed');
+            this.scheduleTouchMenuOpen(menu);
+            this.scheduleLongPressCancel(menu);
+        }
+    }
+
+    handleMultiplierTriggerClick(menu, event) {
+        if (menu.ignoreNextClick || Date.now() - this.lastTouchInteractionAt < 500) {
+            event.preventDefault();
+            event.stopPropagation();
+            menu.ignoreNextClick = false;
+            menu.suppressClick = false;
+            menu.trigger.blur();
+            return;
+        }
+
+        if (menu.suppressClick) {
+            event.preventDefault();
+            event.stopPropagation();
+            menu.suppressClick = false;
+            menu.trigger.blur();
+            return;
+        }
+
+        this.closeMultiplierMenu(menu);
+        this.handleSwipe(menu.liked, 2);
+        menu.trigger.blur();
+    }
+
+    handleMultiplierPointerMove(event) {
+        const menu = this.activeMultiplierMenu;
+        if (!menu || menu.pointerId !== event.pointerId) {
+            return;
+        }
+
+        menu.lastPointerX = event.clientX;
+        menu.lastPointerY = event.clientY;
+
+        if (!this.isPointInsideElement(menu.trigger, event.clientX, event.clientY)) {
+            menu.leftTriggerDuringPointer = true;
+        }
+
+        if (!menu.isOpen && this.shouldOpenTouchMenu(menu)) {
+            this.openTouchMenu(menu);
+        }
+
+        if (!menu.isOpen) {
+            return;
+        }
+
+        this.updateMultiplierSelection(menu, event.clientX, event.clientY);
+    }
+
+    handleMultiplierPointerUp(event) {
+        const menu = this.activeMultiplierMenu;
+        if (!menu || menu.pointerId !== event.pointerId) {
+            return;
+        }
+
+        menu.pointerReleased = true;
+        this.clearTouchMenuOpen(menu);
+
+        if (menu.isOpen) {
+            const hoveredWeight = this.getMultiplierWeightAtPoint(event.clientX, event.clientY);
+            if (hoveredWeight) {
+                this.selectMultiplierOption(menu, hoveredWeight);
+            } else if (this.isPointInsideElement(menu.trigger, event.clientX, event.clientY)) {
+                this.closeMultiplierMenu(menu);
+                if ((!menu.openedDuringPointer || !menu.leftTriggerDuringPointer) && !menu.longPressCanceled) {
+                    this.handleSwipe(menu.liked, 2);
+                }
+                menu.trigger.blur();
+            } else {
+                this.closeMultiplierMenu(menu);
+                menu.trigger.blur();
+            }
+        } else if (this.isPointInsideElement(menu.trigger, event.clientX, event.clientY) && !menu.longPressCanceled) {
+            this.handleSwipe(menu.liked, 2);
+            menu.trigger.blur();
+        }
+
+        this.clearLongPressCancel(menu);
+        this.releasePressedState(menu.trigger);
+        if (menu.trigger.hasPointerCapture && menu.trigger.hasPointerCapture(event.pointerId)) {
+            menu.trigger.releasePointerCapture(event.pointerId);
+        }
+        menu.pointerId = null;
+        this.activeMultiplierMenu = null;
+    }
+
+    handleMultiplierPointerCancel(event) {
+        const menu = this.activeMultiplierMenu;
+        if (!menu || menu.pointerId !== event.pointerId) {
+            return;
+        }
+
+        menu.pointerReleased = true;
+        this.clearTouchMenuOpen(menu);
+        this.clearLongPressCancel(menu);
+        this.closeMultiplierMenu(menu);
+        this.releasePressedState(menu.trigger);
+        menu.trigger.blur();
+        if (menu.trigger.hasPointerCapture && menu.trigger.hasPointerCapture(event.pointerId)) {
+            menu.trigger.releasePointerCapture(event.pointerId);
+        }
+        menu.pointerId = null;
+        this.activeMultiplierMenu = null;
+    }
+
+    handleGlobalPointerDown(event) {
+        const clickedInsideMenu = event.target.closest('.control-menu');
+        if (clickedInsideMenu) {
+            return;
+        }
+
+        this.closeAllMultiplierMenus();
+    }
+
+    updateMultiplierSelection(menu, clientX, clientY) {
+        const activeWeight = this.getMultiplierWeightAtPoint(clientX, clientY);
+        if (menu.activeWeight === activeWeight) {
+            return;
+        }
+
+        menu.activeWeight = activeWeight;
+        this.syncMultiplierHighlight(menu);
+    }
+
+    getMultiplierWeightAtPoint(clientX, clientY) {
+        const target = document.elementFromPoint(clientX, clientY);
+        const option = target ? target.closest('.menu-option') : null;
+        return option ? Number(option.dataset.weight) : null;
+    }
+
+    selectMultiplierOption(menu, weight) {
+        menu.suppressClick = true;
+        this.closeMultiplierMenu(menu);
+        menu.pointerId = null;
+        this.activeMultiplierMenu = null;
+        this.handleSwipe(menu.liked, weight);
+    }
+
+    openMultiplierMenu(menu) {
+        this.closeOtherMultiplierMenus(menu);
+        menu.isOpen = true;
+        menu.container.classList.add('open');
+    }
+
+    closeMultiplierMenu(menu) {
+        this.clearTouchMenuOpen(menu);
+        menu.isOpen = false;
+        menu.container.classList.remove('open');
+        menu.activeWeight = null;
+        this.syncMultiplierHighlight(menu);
+    }
+
+    closeOtherMultiplierMenus(activeMenu) {
+        this.multiplierMenus.forEach((menu) => {
+            if (menu !== activeMenu) {
+                this.closeMultiplierMenu(menu);
+                menu.pointerId = null;
+            }
+        });
+    }
+
+    closeAllMultiplierMenus() {
+        this.multiplierMenus.forEach((menu) => {
+            this.closeMultiplierMenu(menu);
+            menu.pointerId = null;
+        });
+        this.activeMultiplierMenu = null;
+    }
+
+    syncMultiplierHighlight(menu) {
+        menu.options.forEach((option) => {
+            const isActive = Number(option.dataset.weight) === menu.activeWeight;
+            option.classList.toggle('active', isActive);
+            option.classList.toggle('pressed', isActive);
+        });
+    }
+
+    attachButtonBlurHandlers(button) {
+        button.addEventListener('pointerup', () => {
+            window.setTimeout(() => button.blur(), 0);
+        });
+        button.addEventListener('pointercancel', () => {
+            this.releasePressedState(button, 0);
+            window.setTimeout(() => button.blur(), 0);
+        });
+        button.addEventListener('click', () => {
+            this.releasePressedState(button);
+            window.setTimeout(() => button.blur(), 0);
+        });
+        button.addEventListener('pointerdown', (event) => {
+            if (event.pointerType !== 'mouse') {
+                button.classList.add('pressed');
+            }
+        });
+        button.addEventListener('pointerup', () => {
+            this.releasePressedState(button);
+        });
+    }
+
+    releasePressedState(button, delay = 90) {
+        window.setTimeout(() => {
+            button.classList.remove('pressed');
+        }, delay);
+    }
+
+    scheduleTouchMenuOpen(menu) {
+        this.clearTouchMenuOpen(menu);
+        menu.openTimer = window.setTimeout(() => {
+            this.openTouchMenu(menu);
+        }, this.touchMenuOpenDelayMs);
+    }
+
+    openTouchMenu(menu) {
+        if (menu.pointerId === null || menu.pointerReleased || this.activeMultiplierMenu !== menu) {
+            return;
+        }
+
+        if (menu.isOpen) {
+            return;
+        }
+
+        menu.suppressClick = true;
+        menu.openedDuringPointer = true;
+        this.openMultiplierMenu(menu);
+        this.updateMultiplierSelection(menu, menu.lastPointerX, menu.lastPointerY);
+    }
+
+    clearTouchMenuOpen(menu) {
+        if (menu.openTimer) {
+            window.clearTimeout(menu.openTimer);
+            menu.openTimer = null;
+        }
+    }
+
+    scheduleLongPressCancel(menu) {
+        this.clearLongPressCancel(menu);
+        menu.longPressTimer = window.setTimeout(() => {
+            menu.longPressCanceled = true;
+        }, this.touchLongPressCancelMs);
+    }
+
+    clearLongPressCancel(menu) {
+        if (menu.longPressTimer) {
+            window.clearTimeout(menu.longPressTimer);
+            menu.longPressTimer = null;
+        }
+    }
+
+    shouldOpenTouchMenu(menu) {
+        const deltaX = menu.lastPointerX - menu.startPointerX;
+        const deltaY = menu.lastPointerY - menu.startPointerY;
+        return menu.leftTriggerDuringPointer && Math.hypot(deltaX, deltaY) > this.touchDragOpenDistance;
+    }
+
+    isPointInsideElement(element, clientX, clientY) {
+        const rect = element.getBoundingClientRect();
+        return (
+            clientX >= rect.left &&
+            clientX <= rect.right &&
+            clientY >= rect.top &&
+            clientY <= rect.bottom
+        );
     }
     
     handleStart(e) {
