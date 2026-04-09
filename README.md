@@ -97,6 +97,7 @@ cp booru.conf.example booru.conf
 docker compose build
 docker compose up
 ```
+Open http://localhost:8000.
 
 The compose setup mounts `./booru.conf` into the container, persists the SQLite database in a named volume, and runs with `--verbose`.
 
