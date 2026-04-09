@@ -40,7 +40,7 @@ One important nuance: BooruSwipe improves *search queries*, not image ranking. I
 
 ```bash
 git clone https://github.com/hlibr/BooruSwipe.git
-cd booruswipe
+cd BooruSwipe
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install .
