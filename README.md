@@ -6,7 +6,11 @@ Swipe right on images you like, left on ones you don't. BooruSwipe tracks tag-le
 
 > **New to boorus?** Gelbooru and Danbooru are large community image boards, primarily anime and illustration. They tag images extensively, which is what makes tag-based recommendation possible.
 
-https://github.com/user-attachments/assets/6f5cbd00-4947-441a-8e57-eb50b4bd152e
+
+
+https://github.com/user-attachments/assets/3214239a-606b-4f72-a898-6bcedf7c2ff3
+
+
 
 ---
 
