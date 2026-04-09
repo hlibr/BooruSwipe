@@ -31,10 +31,22 @@
             aria-label="Current recommendation"
         ></textarea>
         <div class="controls">
-            <button class="control-btn dislike-x2-btn" id="dislike-x2-btn">✕ x2</button>
+            <div class="control-menu" data-liked="false">
+                <button class="control-btn dislike-x2-btn menu-trigger" id="dislike-x2-btn" type="button">✕ x2</button>
+                <div class="menu-hit-area" aria-hidden="true"></div>
+                <button class="menu-option" type="button" data-weight="3" aria-label="Dislike x3">x3</button>
+                <button class="menu-option" type="button" data-weight="4" aria-label="Dislike x4">x4</button>
+                <button class="menu-option" type="button" data-weight="5" aria-label="Dislike x5">x5</button>
+            </div>
             <button class="control-btn dislike-btn" id="dislike-btn">✕</button>
             <button class="control-btn like-btn" id="like-btn">✓</button>
-            <button class="control-btn like-x2-btn" id="like-x2-btn">✓ x2</button>
+            <div class="control-menu" data-liked="true">
+                <button class="control-btn like-x2-btn menu-trigger" id="like-x2-btn" type="button">✓ x2</button>
+                <div class="menu-hit-area" aria-hidden="true"></div>
+                <button class="menu-option" type="button" data-weight="3" aria-label="Like x3">x3</button>
+                <button class="menu-option" type="button" data-weight="4" aria-label="Like x4">x4</button>
+                <button class="menu-option" type="button" data-weight="5" aria-label="Like x5">x5</button>
+            </div>
         </div>
         <div class="post-link-container">
             <a id="post-link" href="#" target="_blank" rel="noopener noreferrer">View Post</a>
