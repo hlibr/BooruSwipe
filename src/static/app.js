@@ -20,7 +20,7 @@ class SwipeCard {
         this.hoverCapableQuery = window.matchMedia('(hover: hover) and (pointer: fine)');
         this.lastTouchInteractionAt = 0;
         this.touchMenuOpenDelayMs = 200;
-        this.touchLongPressCancelMs = 1000;
+        this.touchLongPressCancelMs = 500;
         this.touchDragOpenDistance = 12;
 
         this.isDragging = false;
