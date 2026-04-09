@@ -1,6 +1,6 @@
 # BooruSwipe
 
-A Tinder-like image browser for [Gelbooru](https://gelbooru.com) and [Danbooru](https://danbooru.donmai.us) with AI-powered recommendations.
+A Tinder-like image browser for [Gelbooru](https://gelbooru.com) and [Danbooru](https://danbooru.donmai.us) with AI-powered next image selection.
 
 Swipe right on images you like, left on ones you don't. BooruSwipe tracks tag-level feedback and uses an LLM to continuously refine its search queries — so the longer you use it, the more it learns what you're into.
 
