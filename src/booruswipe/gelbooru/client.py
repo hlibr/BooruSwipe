@@ -6,6 +6,7 @@ from urllib.parse import urlencode
 
 import httpx
 
+from booruswipe.booru_sources import get_score_sort_tag
 from .models import Image
 
 logger = logging.getLogger(__name__)
@@ -87,6 +88,7 @@ class DanbooruClient:
         tags: List[str],
         limit: int = 100,
         page: int = 0,
+        sort_by_score: bool = True,
     ) -> List[Image]:
         """Search for images by tags.
 
@@ -102,8 +104,10 @@ class DanbooruClient:
             limit = 100
 
         BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "5"))
-        tags = tags[:BOORU_TAGS_PER_SEARCH]
-        tag_string = " ".join(tags)
+        query_tags = tags[:BOORU_TAGS_PER_SEARCH]
+        if sort_by_score:
+            query_tags = [*query_tags, get_score_sort_tag("danbooru")]
+        tag_string = " ".join(query_tags)
         log_image(f"Searching Danbooru for tags: {tag_string} (page={page}, limit={limit})")
         data = await self._request(tags=tag_string, limit=str(limit), page=str(page))
 
@@ -225,6 +229,7 @@ class GelbooruClient:
         tags: List[str],
         limit: int = 100,
         page: int = 0,
+        sort_by_score: bool = True,
     ) -> List[Image]:
         """Search for images by tags.
 
@@ -240,8 +245,10 @@ class GelbooruClient:
             limit = 100
 
         BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "5"))
-        tags = tags[:BOORU_TAGS_PER_SEARCH]
-        tag_string = " ".join(tags)
+        query_tags = tags[:BOORU_TAGS_PER_SEARCH]
+        if sort_by_score:
+            query_tags = [*query_tags, get_score_sort_tag("gelbooru")]
+        tag_string = " ".join(query_tags)
         log_image(f"Searching Gelbooru for tags: {tag_string} (page={page}, limit={limit})")
         data = await self._request(tags=tag_string, limit=limit, pid=page)
 
@@ -347,7 +354,7 @@ class E621Client:
         last_error: Optional[Exception] = None
         for random_tag in ("order:random", "random:1"):
             try:
-                images = await self.search_images([random_tag], limit=1, page=0)
+                images = await self.search_images([random_tag], limit=1, page=0, sort_by_score=False)
             except Exception as exc:
                 last_error = exc
                 continue
@@ -364,14 +371,17 @@ class E621Client:
         tags: List[str],
         limit: int = 100,
         page: int = 0,
+        sort_by_score: bool = True,
     ) -> List[Image]:
         """Search for images by tags."""
         if limit > 320:
             limit = 320
 
         BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "5"))
-        tags = tags[:BOORU_TAGS_PER_SEARCH]
-        tag_string = " ".join(tags)
+        query_tags = tags[:BOORU_TAGS_PER_SEARCH]
+        if sort_by_score:
+            query_tags = [*query_tags, get_score_sort_tag("e621")]
+        tag_string = " ".join(query_tags)
         api_page = page + 1
         log_image(f"Searching e621 for tags: {tag_string} (page={page}, limit={limit})")
         data = await self._request(tags=tag_string, limit=str(limit), page=str(api_page))

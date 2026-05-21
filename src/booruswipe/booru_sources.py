@@ -20,6 +20,14 @@ def get_random_search_tag(source: str | None = None) -> str:
     return "random:1"
 
 
+def get_score_sort_tag(source: str | None = None) -> str:
+    """Return the source-specific query tag used to sort by score descending."""
+    booru_source = (source or get_booru_source()).lower()
+    if booru_source == "gelbooru":
+        return "sort:score"
+    return "order:score"
+
+
 def get_post_url(source: str, image_id: int) -> str:
     """Build the canonical post URL for a booru source."""
     booru_source = source.lower()

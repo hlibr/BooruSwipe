@@ -22,6 +22,7 @@ from booruswipe.booru_sources import get_booru_source, get_post_url, get_random_
 from booruswipe.db.repository import Repository
 from booruswipe.gelbooru.client import BooruClient
 from booruswipe.llm.preference_learner import PreferenceLearner
+from booruswipe.selection import pick_first_unseen
 
 logger = logging.getLogger(__name__)
 
@@ -358,7 +359,11 @@ async def select_next_image(
 
     log_image("Selection started")
 
-    async def search_with_pagination(tags: List[str], limit: int = None) -> Optional[Any]:
+    async def search_with_pagination(
+        tags: List[str],
+        limit: int = None,
+        sort_by_score: bool = True,
+    ) -> Optional[Any]:
         """Search with pagination, trying multiple pages until finding unseen images.
 
         Stops early when:
@@ -373,7 +378,7 @@ async def select_next_image(
             if page > 0:
                 await asyncio.sleep(BOORU_SEARCH_SLEEP)
 
-            images = await booru_client.search_images(tags, limit=limit, page=page)
+            images = await booru_client.search_images(tags, limit=limit, page=page, sort_by_score=sort_by_score)
             log_image(f"Page {page}: {booru_label} returned {len(images)} images")
 
             # Stop if no more results from API
@@ -386,7 +391,8 @@ async def select_next_image(
                 log_image(f"Page {page}: Filtered out {len(images) - len(filtered)} already-seen images")
 
             if filtered:
-                return random.choice(filtered)
+                # Results are already score-sorted, so the first unseen post is the best match.
+                return pick_first_unseen(images, seen_ids)
 
             # Stop if this was the last page (got fewer results than limit)
             if len(images) < limit:
@@ -402,7 +408,7 @@ async def select_next_image(
         if swipe_count < LLM_MIN_SWIPES:
             log_image(f"Below LLM threshold ({swipe_count} < {LLM_MIN_SWIPES}) - selecting random seed image")
             random_tag = get_random_tag()
-            image = await search_with_pagination([random_tag])
+            image = await search_with_pagination([random_tag], sort_by_score=False)
             if image:
                 selected_search_tags = [random_tag]
 
@@ -447,7 +453,7 @@ async def select_next_image(
             await asyncio.sleep(0.5)
             log_image("Level 3 - Using random image (no tags available)")
             random_tag = get_random_tag()
-            image = await search_with_pagination([random_tag])
+            image = await search_with_pagination([random_tag], sort_by_score=False)
             if image:
                 selected_search_tags = [random_tag]
 
