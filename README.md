@@ -20,8 +20,6 @@ https://github.com/user-attachments/assets/3214239a-606b-4f72-a898-6bcedf7c2ff3
 4. Those tags drive the next round of image fetching
 5. If no LLM is configured, it falls back to your top liked tags directly
 
-One important nuance: BooruSwipe improves *search queries* and also locally ranks the returned candidates. It is still adaptive search term generation, but it can now choose the best unseen image from the pool it fetches.
-
 You can also submit stronger feedback with the `x2` buttons. Holding an `x2` button opens `x3` / `x4` / `x5` multipliers for even stronger like or dislike signals.
 
 ---
