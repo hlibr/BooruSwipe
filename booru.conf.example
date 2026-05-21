@@ -40,4 +40,3 @@ e621_user_id=
 # Search Pagination Settings (optional - defaults shown)
 # BOORU_SEARCH_LIMIT=100        # Max images per page (max 100)
 # BOORU_SEARCH_PAGES=3          # Number of pages to try before giving up
-# BOORU_SEARCH_SLEEP=0.15       # Sleep between page requests (seconds)

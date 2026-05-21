@@ -190,7 +190,6 @@ BOORU_SOURCE=gelbooru  # or: danbooru, e621
 | `DOUBLE_LIKED_NEVER_IGNORE` | No | `false` | Exempt double-liked images from repeat filtering |
 | `BOORU_SEARCH_LIMIT` | No | `100` | Images requested per search page |
 | `BOORU_SEARCH_PAGES` | No | `3` | Pages to scan before giving up |
-| `BOORU_SEARCH_SLEEP` | No | `0.15` | Delay between paginated requests (seconds) |
 
 ---
 

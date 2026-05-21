@@ -365,13 +365,13 @@ async def select_next_image(
     seen_ids: set[int],
     swipe_count: int,
 ) -> tuple[Any, List[str]]:
-    """Select next image using full 3-level fallback with delays.
+    """Select next image using full 3-level fallback.
 
     Hierarchy:
     1. Below LLM_MIN_SWIPES → Truly random seed images (no tags)
     2. Above threshold → LLM recommendations with progressive fallback
-    3. Fallback → Tag frequencies (with 0.5s delays)
-    4. Final → Random image (with 0.5s delays)
+    3. Fallback → Tag frequencies
+    4. Final → Random image
 
     Returns:
         Image object with id, url, tags, sample, width, height and the search tags used
@@ -382,7 +382,6 @@ async def select_next_image(
     BOORU_TAGS_PER_SEARCH_FALLBACK = int(os.getenv("BOORU_TAGS_PER_SEARCH_FALLBACK", "3"))
     BOORU_SEARCH_LIMIT = int(os.getenv("BOORU_SEARCH_LIMIT", "100"))
     BOORU_SEARCH_PAGES = int(os.getenv("BOORU_SEARCH_PAGES", "3"))
-    BOORU_SEARCH_SLEEP = float(os.getenv("BOORU_SEARCH_SLEEP", "0.15"))
     BOORU_SEARCH_SORT_MODE = get_search_sort_mode()
     TAG_DECAY_HALF_LIFE_SWIPES = float(os.getenv("TAG_DECAY_HALF_LIFE_SWIPES", "30"))
     RECENT_SWIPES_WINDOW = int(os.getenv("RECENT_SWIPES_WINDOW", "5"))
@@ -442,9 +441,6 @@ async def select_next_image(
         best_score = float("-inf")
 
         for page in range(BOORU_SEARCH_PAGES):
-            if page > 0:
-                await asyncio.sleep(BOORU_SEARCH_SLEEP)
-
             images = await booru_client.search_images(tags, limit=limit, page=page, sort_mode=effective_sort_mode)
             log_image(f"Page {page}: {booru_label} returned {len(images)} images")
 
@@ -520,7 +516,6 @@ async def select_next_image(
 
         # Level 2: Fallback to raw tag frequencies (only if above LLM threshold)
         if image is None and swipe_count >= LLM_MIN_SWIPES:
-            await asyncio.sleep(0.5)
             top_tags = await repository.get_top_liked_tags(limit=BOORU_TAGS_PER_SEARCH_FALLBACK)
             if top_tags:
                 log_image(f"Level 2 - Using top liked tags: {', '.join(top_tags)}")
@@ -531,7 +526,6 @@ async def select_next_image(
 
         # Level 3: Final fallback to random (only if above LLM threshold)
         if image is None and swipe_count >= LLM_MIN_SWIPES:
-            await asyncio.sleep(0.5)
             log_image("Level 3 - Using random image (no tags available)")
             random_tag = get_random_tag()
             image = await search_with_pagination([random_tag], sort_mode="none", rank_candidates=False)
