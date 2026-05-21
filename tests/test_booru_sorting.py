@@ -8,7 +8,13 @@ import pytest
 from booruswipe.booru_sources import get_score_sort_tag, get_search_sort_tag
 from booruswipe.gelbooru.client import DanbooruClient, E621Client, GelbooruClient
 from booruswipe.gelbooru.models import Image
-from booruswipe.selection import decay_value, pick_best_scored_unseen, pick_first_unseen, score_image
+from booruswipe.selection import (
+    compact_recent_tag_scores,
+    decay_value,
+    pick_best_scored_unseen,
+    pick_first_unseen,
+    score_image,
+)
 
 
 def _make_image(image_id: int, tag: str = "cat") -> Image:
@@ -175,6 +181,27 @@ def test_decay_value_keeps_recent_scores_near_original():
     score = decay_value(8.0, age_swipes=1, half_life_swipes=30)
 
     assert score == pytest.approx(8.0, rel=3e-2)
+
+
+def test_compact_recent_tag_scores_uses_absolute_value_order():
+    """Recent tags should be compacted by absolute score, not sign."""
+    compacted = compact_recent_tag_scores(
+        {
+            "small_positive": 2,
+            "big_negative": -9,
+            "mid_positive": 5,
+            "mid_negative": -4,
+            "zero": 0,
+            "tiny_positive": 1,
+        },
+        limit=3,
+        cumulative_liked_tags={"mid_positive"},
+    )
+
+    assert list(compacted.keys()) == ["big_negative", "mid_negative", "small_positive"]
+    assert compacted["big_negative"] == -9
+    assert compacted["mid_negative"] == -4
+    assert compacted["small_positive"] == 2
 
 
 def test_pick_best_scored_unseen_prefers_highest_scoring_candidate():

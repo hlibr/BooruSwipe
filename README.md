@@ -178,9 +178,8 @@ BOORU_SOURCE=gelbooru  # or: danbooru, e621
 | `LLM_MAX_TAGS` | No | `30` | Max cumulative tags sent to the LLM |
 | `LLM_TAG_FILTER_MIN_COUNT` | No | `1` | Minimum tag score to include in LLM input |
 | `LLM_USE_STRUCTURED_OUTPUT` | No | `true` | Validate LLM output against response schema |
-| `LLM_RECENT_POSITIVE` | No | `10` | Recent positive tags sent to LLM |
-| `LLM_RECENT_NEGATIVE` | No | `10` | Recent negative tags sent to LLM |
 | `LLM_RECENT_FILTER_CUMULATIVE_LIKES` | No | `true` | Filter recent positives already in cumulative likes before sending to LLM |
+| `LLM_RECENT` | No | `20` | Number of recent tags sent to LLM, chosen by absolute recent score |
 | `RECENT_SWIPES_WINDOW` | No | `5` | Number of most recent swipes used for recent-tag scoring |
 | `BOORU_TAGS_PER_SEARCH` | No | `5` | Max tags used in the primary search query |
 | `BOORU_TAGS_PER_SEARCH_FALLBACK` | No | `3` | Max tags used in the fallback search query |

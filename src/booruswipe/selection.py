@@ -34,6 +34,32 @@ def decay_value(
     return float(value) * decay_factor
 
 
+def compact_recent_tag_scores(
+    recent_tag_scores: Mapping[str, float],
+    limit: int,
+    cumulative_liked_tags: Optional[set[str]] = None,
+) -> dict[str, float]:
+    """Keep the strongest recent tags by absolute score.
+
+    Positive tags already present in the cumulative liked set can be filtered
+    out before ranking. Zero-score tags are discarded because they do not carry
+    directional signal.
+    """
+    if limit <= 0 or not recent_tag_scores:
+        return {}
+
+    scored_tags = []
+    for tag, score in recent_tag_scores.items():
+        if score == 0:
+            continue
+        if cumulative_liked_tags and score > 0 and tag in cumulative_liked_tags:
+            continue
+        scored_tags.append((tag, score))
+
+    scored_tags.sort(key=lambda item: (-abs(item[1]), -item[1], item[0]))
+    return dict(scored_tags[:limit])
+
+
 def pick_first_unseen(images: Sequence[T], seen_ids: set[int]) -> Optional[T]:
     """Return the first image whose id is not present in ``seen_ids``."""
     for image in images:

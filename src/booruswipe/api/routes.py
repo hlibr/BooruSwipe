@@ -22,7 +22,12 @@ from booruswipe.booru_sources import get_booru_source, get_post_url, get_random_
 from booruswipe.db.repository import Repository
 from booruswipe.gelbooru.client import BooruClient
 from booruswipe.llm.preference_learner import PreferenceLearner
-from booruswipe.selection import decay_value, pick_best_scored_unseen, pick_first_unseen
+from booruswipe.selection import (
+    compact_recent_tag_scores,
+    decay_value,
+    pick_best_scored_unseen,
+    pick_first_unseen,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -190,6 +195,7 @@ async def run_llm_analysis(repository, preference_learner):
     llm_state["is_processing"] = True
     LLM_MAX_TAGS = int(os.getenv("LLM_MAX_TAGS", "30"))
     BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "5"))
+    LLM_RECENT = int(os.getenv("LLM_RECENT", "20"))
     TAG_DECAY_HALF_LIFE_SWIPES = float(os.getenv("TAG_DECAY_HALF_LIFE_SWIPES", "30"))
     RECENT_SWIPES_WINDOW = int(os.getenv("RECENT_SWIPES_WINDOW", "5"))
     
@@ -242,30 +248,24 @@ async def run_llm_analysis(repository, preference_learner):
             )
             tag_freqs = dict(positive_tag_items[:half_limit] + negative_tag_items[:half_limit])
 
-            LLM_RECENT_POSITIVE = int(os.getenv("LLM_RECENT_POSITIVE", "10"))
-            LLM_RECENT_NEGATIVE = int(os.getenv("LLM_RECENT_NEGATIVE", "10"))
             LLM_RECENT_FILTER_CUMULATIVE_LIKES = (
                 os.getenv("LLM_RECENT_FILTER_CUMULATIVE_LIKES", "true").lower() == "true"
             )
 
             recent_scores = await repository.get_recent_tag_scores(limit=RECENT_SWIPES_WINDOW)
 
-            # Compact to top N positive and M negative
+            # Compact to the strongest recent tags by absolute score.
             if recent_scores:
-                positive = [(tag, score) for tag, score in recent_scores.items() if score > 0]
-                negative = [(tag, score) for tag, score in recent_scores.items() if score < 0]
+                cumulative_liked_tags = None
                 if LLM_RECENT_FILTER_CUMULATIVE_LIKES:
                     cumulative_liked_tags = {
                         tag for tag, data in tag_freqs.items() if data["rank_score"] > 0
                     }
-                    positive = [
-                        (tag, score)
-                        for tag, score in positive
-                        if tag not in cumulative_liked_tags
-                    ]
-                positive.sort(key=lambda x: x[1], reverse=True)
-                negative.sort(key=lambda x: x[1])
-                recent_scores = dict(positive[:LLM_RECENT_POSITIVE] + negative[:LLM_RECENT_NEGATIVE])
+                recent_scores = compact_recent_tag_scores(
+                    recent_scores,
+                    limit=LLM_RECENT,
+                    cumulative_liked_tags=cumulative_liked_tags,
+                )
 
             learned_profile = await preference_learner.analyze_preferences(
                 tag_freqs,
@@ -284,7 +284,10 @@ async def run_llm_analysis(repository, preference_learner):
                     for tag, data in list(tag_freqs.items())[:10]
                 )
             )
-            log_llm(f"RECENT TAGS (top 10): {', '.join(f'{tag} ({score:+d})' for tag, score in list(recent_scores.items())[:10]) if recent_scores else 'No recent data'}")
+            log_llm(
+                f"RECENT TAGS (top {LLM_RECENT}): "
+                f"{', '.join(f'{tag} ({score:+d})' for tag, score in list(recent_scores.items())[:LLM_RECENT]) if recent_scores else 'No recent data'}"
+            )
             log_llm(f"Analyzed preferences with tag frequencies: {tag_freqs}")
             if db_profile.preferences.get('liked_tags'):
                 log_llm(f"Response: liked_tags={db_profile.preferences.get('liked_tags', [])}")

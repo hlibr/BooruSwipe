@@ -133,6 +133,46 @@ def test_analyze_preferences_uses_rank_score_for_prompt_order(mock_llm_client):
     assert prompt.index("fresh (3 likes") < prompt.index("stale (10 likes")
 
 
+def test_analyze_preferences_orders_recent_tags_by_absolute_score(mock_llm_client, sample_tag_stats):
+    """Recent tags in the prompt should be ordered by absolute recent score."""
+    expected_response = {
+        "choices": [
+            {
+                "message": {
+                    "content": json.dumps({
+                        "liked_tags": ["tag1"],
+                        "disliked_tags": ["tag4"],
+                        "preferences_summary": "Test summary",
+                        "recommended_search_tags": ["tag1", "tag4"],
+                    })
+                }
+            }
+        ]
+    }
+    mock_llm_client.chat_completion.return_value = expected_response
+
+    learner = PreferenceLearner(mock_llm_client)
+    asyncio.run(
+        learner.analyze_preferences(
+            sample_tag_stats,
+            tag_limit=2,
+            recent_tag_scores={
+                "small_positive": 2,
+                "big_negative": -9,
+                "mid_positive": 5,
+                "mid_negative": -4,
+            },
+        )
+    )
+
+    messages = mock_llm_client.chat_completion.await_args.args[0]
+    prompt = messages[1]["content"]
+
+    assert prompt.index("big_negative (-9)") < prompt.index("mid_positive (+5)")
+    assert prompt.index("mid_positive (+5)") < prompt.index("mid_negative (-4)")
+    assert prompt.index("mid_negative (-4)") < prompt.index("small_positive (+2)")
+
+
 def test_analyze_preferences_parses_markdown_and_think_tags(mock_llm_client, sample_tag_stats):
     """Ensure markdown fences and think tags are stripped before JSON parsing."""
     expected_response = {

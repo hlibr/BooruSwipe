@@ -183,7 +183,10 @@ Top disliked: {disliked_tags_str if disliked_tags_str else "No tags available"}
 """
 
         if recent_tag_scores:
-            sorted_recent = sorted(recent_tag_scores.items(), key=lambda x: x[1], reverse=True)
+            sorted_recent = sorted(
+                recent_tag_scores.items(),
+                key=lambda item: (-abs(item[1]), -item[1], item[0]),
+            )
             recent_str = ", ".join(f"{tag} ({score:+d})" for tag, score in sorted_recent)
             prompt += f"""
 
