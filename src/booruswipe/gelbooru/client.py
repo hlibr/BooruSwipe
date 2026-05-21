@@ -1,6 +1,9 @@
 """Async HTTP clients for Booru image boards."""
+import asyncio
 import logging
 import os
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from typing import List, Optional
 from urllib.parse import urlencode
 
@@ -11,11 +14,93 @@ from .models import Image
 
 logger = logging.getLogger(__name__)
 
+RETRYABLE_STATUS_CODES = {408, 425, 429, 500, 502, 503, 504}
+
 def log_image(msg: str):
     logging.info(msg, extra={"category": "IMAGE"})
 
 def log_error(msg: str):
     logging.error(msg, extra={"category": "ERROR"})
+
+
+def _get_api_retry_settings() -> tuple[int, float, float]:
+    """Read booru API retry settings from the environment."""
+    return (
+        max(1, int(os.getenv("BOORU_API_MAX_RETRIES", "3"))),
+        max(0.0, float(os.getenv("BOORU_API_RETRY_BASE_DELAY", "0.5"))),
+        max(0.0, float(os.getenv("BOORU_API_RETRY_MAX_DELAY", "8"))),
+    )
+
+
+def _parse_retry_after_seconds(retry_after: Optional[str]) -> Optional[float]:
+    """Parse Retry-After header values into seconds."""
+    if not retry_after:
+        return None
+
+    try:
+        return max(0.0, float(retry_after))
+    except ValueError:
+        pass
+
+    try:
+        retry_at = parsedate_to_datetime(retry_after)
+    except (TypeError, ValueError, IndexError):
+        return None
+
+    if retry_at.tzinfo is None:
+        retry_at = retry_at.replace(tzinfo=timezone.utc)
+    return max(0.0, (retry_at - datetime.now(timezone.utc)).total_seconds())
+
+
+async def _request_json_with_retries(
+    client: httpx.AsyncClient,
+    url: str,
+    *,
+    source_name: str,
+    max_retries: int,
+    base_delay: float,
+    max_delay: float,
+) -> dict:
+    """GET JSON with retry/backoff for transient HTTP and network failures."""
+    for attempt in range(max_retries):
+        try:
+            response = await client.get(url)
+
+            if response.status_code in RETRYABLE_STATUS_CODES:
+                if attempt == max_retries - 1:
+                    log_error(
+                        f"{source_name} API returned {response.status_code} on final attempt; giving up"
+                    )
+                    response.raise_for_status()
+
+                retry_after = _parse_retry_after_seconds(response.headers.get("Retry-After"))
+                wait_time = retry_after if retry_after is not None else min(
+                    max_delay,
+                    base_delay * (2 ** attempt),
+                )
+                log_error(
+                    f"{source_name} API returned {response.status_code}; retrying in {wait_time:.2f}s "
+                    f"(attempt {attempt + 1}/{max_retries})"
+                )
+                await asyncio.sleep(wait_time)
+                continue
+
+            response.raise_for_status()
+            return response.json()
+        except httpx.RequestError as exc:
+            if attempt == max_retries - 1:
+                log_error(
+                    f"{source_name} request failed after {max_retries} attempts: "
+                    f"{type(exc).__name__}: {exc}"
+                )
+                raise
+
+            wait_time = min(max_delay, base_delay * (2 ** attempt))
+            log_error(
+                f"{source_name} request failed with {type(exc).__name__}: {exc}; "
+                f"retrying in {wait_time:.2f}s (attempt {attempt + 1}/{max_retries})"
+            )
+            await asyncio.sleep(wait_time)
 
 
 class DanbooruClient:
@@ -62,10 +147,15 @@ class DanbooruClient:
         )
         
         url = f"{self.BASE_URL}?{urlencode(params)}"
-        
-        response = await self._client.get(url)
-        response.raise_for_status()
-        return response.json()
+        max_retries, base_delay, max_delay = _get_api_retry_settings()
+        return await _request_json_with_retries(
+            self._client,
+            url,
+            source_name="Danbooru",
+            max_retries=max_retries,
+            base_delay=base_delay,
+            max_delay=max_delay,
+        )
     
     async def get_random_image(self) -> Image:
         """Fetch a random image from Danbooru.
@@ -151,9 +241,15 @@ class DanbooruClient:
             else None
         )
 
-        response = await self._client.get(self.POST_URL.format(post_id=post_id))
-        response.raise_for_status()
-        data = response.json()
+        max_retries, base_delay, max_delay = _get_api_retry_settings()
+        data = await _request_json_with_retries(
+            self._client,
+            self.POST_URL.format(post_id=post_id),
+            source_name="Danbooru",
+            max_retries=max_retries,
+            base_delay=base_delay,
+            max_delay=max_delay,
+        )
         
         if not data:
             raise ValueError(f"Post {post_id} not found")
@@ -208,10 +304,15 @@ class GelbooruClient:
         params["json"] = "1"
         
         url = f"{self.BASE_URL}?{urlencode(params)}"
-        
-        response = await self._client.get(url)
-        response.raise_for_status()
-        return response.json()
+        max_retries, base_delay, max_delay = _get_api_retry_settings()
+        return await _request_json_with_retries(
+            self._client,
+            url,
+            source_name="Gelbooru",
+            max_retries=max_retries,
+            base_delay=base_delay,
+            max_delay=max_delay,
+        )
     
     async def get_random_image(self) -> Image:
         """Fetch a random image from Gelbooru.
@@ -342,10 +443,15 @@ class E621Client:
         )
 
         url = f"{self.BASE_URL}?{urlencode(params)}"
-
-        response = await self._client.get(url)
-        response.raise_for_status()
-        return response.json()
+        max_retries, base_delay, max_delay = _get_api_retry_settings()
+        return await _request_json_with_retries(
+            self._client,
+            url,
+            source_name="e621",
+            max_retries=max_retries,
+            base_delay=base_delay,
+            max_delay=max_delay,
+        )
 
     @staticmethod
     def _extract_posts(data: object) -> List[dict]:
