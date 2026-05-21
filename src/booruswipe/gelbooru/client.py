@@ -194,7 +194,7 @@ class DanbooruClient:
         if limit > 100:
             limit = 100
 
-        BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "5"))
+        BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "4"))
         query_tags = tags[:BOORU_TAGS_PER_SEARCH]
         effective_sort_mode = (sort_mode or get_search_sort_mode()).lower()
         if effective_sort_mode not in {"score", "random", "none"}:
@@ -353,7 +353,7 @@ class GelbooruClient:
         if limit > 100:
             limit = 100
 
-        BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "5"))
+        BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "4"))
         query_tags = tags[:BOORU_TAGS_PER_SEARCH]
         effective_sort_mode = (sort_mode or get_search_sort_mode()).lower()
         if effective_sort_mode not in {"score", "random", "none"}:
@@ -497,7 +497,7 @@ class E621Client:
         if limit > 320:
             limit = 320
 
-        BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "5"))
+        BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "4"))
         query_tags = tags[:BOORU_TAGS_PER_SEARCH]
         effective_sort_mode = (sort_mode or get_search_sort_mode()).lower()
         if effective_sort_mode not in {"score", "random", "none"}:
