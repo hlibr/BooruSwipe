@@ -86,7 +86,7 @@ class PreferenceLearner:
 
     async def analyze_preferences(
         self,
-        tag_stats: dict[str, dict[str, int]],
+        tag_stats: dict[str, dict[str, Any]],
         tag_limit: int = 2,
         recent_tag_scores: Optional[dict[str, int]] = None,
     ) -> PreferenceProfile:
@@ -113,11 +113,14 @@ class PreferenceLearner:
                 total_dislikes=0,
             )
 
+        def get_rank_score(data: dict[str, Any]) -> float:
+            return float(data.get("rank_score", data["net_count"]))
+
         positive_net_tags = {
-            tag: data["net_count"] for tag, data in tag_stats.items() if data["net_count"] > 0
+            tag: get_rank_score(data) for tag, data in tag_stats.items() if get_rank_score(data) > 0
         }
         negative_net_tags = {
-            tag: data["net_count"] for tag, data in tag_stats.items() if data["net_count"] < 0
+            tag: get_rank_score(data) for tag, data in tag_stats.items() if get_rank_score(data) < 0
         }
 
         sorted_positive_net = sorted(
@@ -130,14 +133,21 @@ class PreferenceLearner:
             key=lambda item: item[1],
         )
         sorted_liked = sorted(
-            tag_stats.items(),
-            key=lambda item: (item[1]["liked_count"], item[1]["net_count"]),
+            [
+                (tag, data)
+                for tag, data in tag_stats.items()
+                if get_rank_score(data) > 0
+            ],
+            key=lambda item: (get_rank_score(item[1]), item[1]["liked_count"], item[1]["net_count"]),
             reverse=True,
         )
         sorted_disliked = sorted(
-            tag_stats.items(),
-            key=lambda item: (item[1]["disliked_count"], -item[1]["net_count"]),
-            reverse=True,
+            [
+                (tag, data)
+                for tag, data in tag_stats.items()
+                if get_rank_score(data) < 0
+            ],
+            key=lambda item: (get_rank_score(item[1]), -item[1]["disliked_count"], -item[1]["net_count"]),
         )
 
         top_10_positive_net = sorted_positive_net[:10]

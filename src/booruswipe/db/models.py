@@ -84,6 +84,7 @@ class TagCount(Base):
     tag: Mapped[str] = mapped_column(String(256), primary_key=True)
     liked_count: Mapped[int] = mapped_column(default=0, nullable=False)
     disliked_count: Mapped[int] = mapped_column(default=0, nullable=False)
+    last_swipe_index: Mapped[int] = mapped_column(default=0, nullable=False)
     last_updated: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),

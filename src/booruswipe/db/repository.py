@@ -1,5 +1,6 @@
 """Repository module for CRUD operations."""
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 
@@ -42,13 +43,27 @@ class Repository:
     async def init_db(self) -> None:
         async with self._engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
-            existing_columns = {
+            existing_swipe_columns = {
                 row[1]
                 for row in (await conn.execute(text("PRAGMA table_info(swipes)"))).fetchall()
             }
-            if "weight" not in existing_columns:
+            if "weight" not in existing_swipe_columns:
                 await conn.execute(
                     text("ALTER TABLE swipes ADD COLUMN weight INTEGER NOT NULL DEFAULT 1")
+                )
+            existing_tag_columns = {
+                row[1]
+                for row in (await conn.execute(text("PRAGMA table_info(tag_counts)"))).fetchall()
+            }
+            if "last_swipe_index" not in existing_tag_columns:
+                await conn.execute(
+                    text("ALTER TABLE tag_counts ADD COLUMN last_swipe_index INTEGER NOT NULL DEFAULT 0")
+                )
+                swipe_count_result = await conn.execute(text("SELECT COUNT(*) FROM swipes"))
+                current_swipe_count = int(swipe_count_result.scalar() or 0)
+                await conn.execute(
+                    text("UPDATE tag_counts SET last_swipe_index = :current_swipe_count"),
+                    {"current_swipe_count": current_swipe_count},
                 )
         log_startup("Database initialized successfully")
 
@@ -137,20 +152,38 @@ class Repository:
             result = await session.execute(stmt)
             return result.scalar() or 0
 
-    async def update_tag_count(self, tag: str, liked: bool, weight: int = 1) -> None:
+    async def update_tag_count(
+        self,
+        tag: str,
+        liked: bool,
+        weight: int = 1,
+        current_swipe_count: Optional[int] = None,
+    ) -> None:
         async with self.async_sessionmaker() as session:
             try:
                 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+                from sqlalchemy import func
+
+                if current_swipe_count is None:
+                    current_swipe_count_result = await session.execute(
+                        select(func.count()).select_from(Swipe)
+                    )
+                    current_swipe_count = int(current_swipe_count_result.scalar() or 0)
+                updated_at = datetime.now(timezone.utc)
                 
                 stmt = sqlite_insert(TagCount).values(
                     tag=tag,
                     liked_count=weight if liked else 0,
                     disliked_count=0 if liked else weight,
+                    last_swipe_index=current_swipe_count,
+                    last_updated=updated_at,
                 ).on_conflict_do_update(
                     index_elements=["tag"],
                     set_={
                         "liked_count": TagCount.liked_count + (weight if liked else 0),
                         "disliked_count": TagCount.disliked_count + (0 if liked else weight),
+                        "last_swipe_index": current_swipe_count,
+                        "last_updated": updated_at,
                     },
                 )
                 await session.execute(stmt)
@@ -276,6 +309,7 @@ class Repository:
                 tc.tag: {
                     "liked_count": tc.liked_count,
                     "disliked_count": tc.disliked_count,
+                    "last_swipe_index": tc.last_swipe_index,
                     "last_updated": tc.last_updated,
                 }
                 for tc in tag_counts
@@ -312,6 +346,7 @@ class Repository:
                 "liked_count": tc.liked_count,
                 "disliked_count": tc.disliked_count,
                 "net_count": tc.liked_count - tc.disliked_count,
+                "last_swipe_index": tc.last_swipe_index,
             }
             for tc in tag_counts
             # if abs(tc.liked_count - tc.disliked_count) >= min_absolute_count

@@ -185,6 +185,7 @@ BOORU_SOURCE=gelbooru  # or: danbooru, e621
 | `LLM_RECENT_FILTER_CUMULATIVE_LIKES` | No | `true` | Filter recent positives already in cumulative likes before sending to LLM |
 | `BOORU_TAGS_PER_SEARCH` | No | `5` | Max tags used in the primary search query |
 | `BOORU_TAGS_PER_SEARCH_FALLBACK` | No | `3` | Max tags used in the fallback search query |
+| `TAG_DECAY_HALF_LIFE_SWIPES` | No | `30` | Half-life in swipes for tag score decay used by ranking and LLM input |
 | `RANDOM_IMAGE_CHANCE` | No | `5` | % chance to show a random image instead of a recommendation |
 | `DOUBLE_LIKED_NEVER_IGNORE` | No | `false` | Exempt double-liked images from repeat filtering |
 | `BOORU_SEARCH_LIMIT` | No | `100` | Images requested per search page |

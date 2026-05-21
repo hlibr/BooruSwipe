@@ -17,6 +17,23 @@ class ScoredImage(Generic[T]):
     score: float
 
 
+def decay_value(
+    value: float,
+    age_swipes: float,
+    half_life_swipes: float,
+) -> float:
+    """Apply exponential decay to a score based on swipe distance.
+
+    A half-life of 30 swipes means the value is cut in half every 30 swipes.
+    Pass a non-positive half-life to disable decay.
+    """
+    if half_life_swipes <= 0:
+        return float(value)
+
+    decay_factor = 0.5 ** (max(0.0, age_swipes) / half_life_swipes)
+    return float(value) * decay_factor
+
+
 def pick_first_unseen(images: Sequence[T], seen_ids: set[int]) -> Optional[T]:
     """Return the first image whose id is not present in ``seen_ids``."""
     for image in images:
@@ -27,8 +44,8 @@ def pick_first_unseen(images: Sequence[T], seen_ids: set[int]) -> Optional[T]:
 
 def score_image(
     image: object,
-    cumulative_tag_scores: Mapping[str, int],
-    recent_tag_scores: Mapping[str, int],
+    cumulative_tag_scores: Mapping[str, float],
+    recent_tag_scores: Mapping[str, float],
 ) -> float:
     """Score an image using cumulative and recent tag affinity."""
     total = 0.0
@@ -42,8 +59,8 @@ def score_image(
 def pick_best_scored_unseen(
     images: Sequence[T],
     seen_ids: set[int],
-    cumulative_tag_scores: Mapping[str, int],
-    recent_tag_scores: Mapping[str, int],
+    cumulative_tag_scores: Mapping[str, float],
+    recent_tag_scores: Mapping[str, float],
 ) -> Optional[ScoredImage[T]]:
     """Return the highest-scoring unseen image from a result set."""
     best: Optional[ScoredImage[T]] = None

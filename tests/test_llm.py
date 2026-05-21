@@ -97,6 +97,42 @@ def test_generate_search_query(mock_llm_client, sample_tag_stats):
     assert query == ["tag1", "tag2"]
 
 
+def test_analyze_preferences_uses_rank_score_for_prompt_order(mock_llm_client):
+    """Decayed rank scores should control the cumulative shortlist order."""
+    expected_response = {
+        "choices": [
+            {
+                "message": {
+                    "content": json.dumps({
+                        "liked_tags": ["fresh", "stale"],
+                        "disliked_tags": ["bad"],
+                        "preferences_summary": "Test summary",
+                        "recommended_search_tags": ["fresh", "stale"],
+                    })
+                }
+            }
+        ]
+    }
+    mock_llm_client.chat_completion.return_value = expected_response
+
+    learner = PreferenceLearner(mock_llm_client)
+    asyncio.run(
+        learner.analyze_preferences(
+            {
+                "stale": {"liked_count": 10, "disliked_count": 0, "net_count": 10, "rank_score": 1.0},
+                "fresh": {"liked_count": 3, "disliked_count": 0, "net_count": 3, "rank_score": 5.0},
+                "bad": {"liked_count": 0, "disliked_count": 4, "net_count": -4, "rank_score": -4.0},
+            },
+            tag_limit=2,
+        )
+    )
+
+    messages = mock_llm_client.chat_completion.await_args.args[0]
+    prompt = messages[1]["content"]
+
+    assert prompt.index("fresh (3 likes") < prompt.index("stale (10 likes")
+
+
 def test_analyze_preferences_parses_markdown_and_think_tags(mock_llm_client, sample_tag_stats):
     """Ensure markdown fences and think tags are stripped before JSON parsing."""
     expected_response = {

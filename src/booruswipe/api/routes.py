@@ -22,7 +22,7 @@ from booruswipe.booru_sources import get_booru_source, get_post_url, get_random_
 from booruswipe.db.repository import Repository
 from booruswipe.gelbooru.client import BooruClient
 from booruswipe.llm.preference_learner import PreferenceLearner
-from booruswipe.selection import pick_best_scored_unseen, pick_first_unseen
+from booruswipe.selection import decay_value, pick_best_scored_unseen, pick_first_unseen
 
 logger = logging.getLogger(__name__)
 
@@ -189,28 +189,73 @@ async def run_llm_analysis(repository, preference_learner):
     """
     llm_state["is_processing"] = True
     LLM_MAX_TAGS = int(os.getenv("LLM_MAX_TAGS", "30"))
-    LLM_TAG_FILTER_MIN_COUNT = int(os.getenv("LLM_TAG_FILTER_MIN_COUNT", "1"))
     BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "5"))
+    TAG_DECAY_HALF_LIFE_SWIPES = float(os.getenv("TAG_DECAY_HALF_LIFE_SWIPES", "30"))
     
     async with repository.async_sessionmaker() as session:
         try:
-            tag_freqs = await repository.get_tag_counts_for_llm(session, limit=LLM_MAX_TAGS, min_absolute_count=LLM_TAG_FILTER_MIN_COUNT)
+            all_tag_freqs = await repository.get_tag_counts()
+            current_swipe_count = _session.swipe_count
+
+            decayed_tag_freqs: Dict[str, Dict[str, Any]] = {}
+            for tag, data in all_tag_freqs.items():
+                raw_net_count = data["liked_count"] - data["disliked_count"]
+                decayed_net_count = decay_value(
+                    raw_net_count,
+                    current_swipe_count - data.get("last_swipe_index", 0),
+                    TAG_DECAY_HALF_LIFE_SWIPES,
+                )
+                decayed_tag_freqs[tag] = {
+                    "liked_count": data["liked_count"],
+                    "disliked_count": data["disliked_count"],
+                    "net_count": raw_net_count,
+                    "last_swipe_index": data.get("last_swipe_index", 0),
+                    "rank_score": decayed_net_count,
+                }
+
+            half_limit = LLM_MAX_TAGS // 2
+            positive_tag_items = sorted(
+                [
+                    (tag, data)
+                    for tag, data in decayed_tag_freqs.items()
+                    if data["rank_score"] > 0
+                ],
+                key=lambda item: (
+                    item[1]["rank_score"],
+                    item[1]["liked_count"],
+                    item[1]["net_count"],
+                ),
+                reverse=True,
+            )
+            negative_tag_items = sorted(
+                [
+                    (tag, data)
+                    for tag, data in decayed_tag_freqs.items()
+                    if data["rank_score"] < 0
+                ],
+                key=lambda item: (
+                    item[1]["rank_score"],
+                    -item[1]["disliked_count"],
+                    -item[1]["net_count"],
+                ),
+            )
+            tag_freqs = dict(positive_tag_items[:half_limit] + negative_tag_items[:half_limit])
 
             LLM_RECENT_POSITIVE = int(os.getenv("LLM_RECENT_POSITIVE", "10"))
             LLM_RECENT_NEGATIVE = int(os.getenv("LLM_RECENT_NEGATIVE", "10"))
             LLM_RECENT_FILTER_CUMULATIVE_LIKES = (
                 os.getenv("LLM_RECENT_FILTER_CUMULATIVE_LIKES", "true").lower() == "true"
             )
-            
+
             recent_scores = await repository.get_recent_tag_scores(limit=20)
-            
+
             # Compact to top N positive and M negative
             if recent_scores:
                 positive = [(tag, score) for tag, score in recent_scores.items() if score > 0]
                 negative = [(tag, score) for tag, score in recent_scores.items() if score < 0]
                 if LLM_RECENT_FILTER_CUMULATIVE_LIKES:
                     cumulative_liked_tags = {
-                        tag for tag, data in tag_freqs.items() if data["liked_count"] > 0
+                        tag for tag, data in tag_freqs.items() if data["rank_score"] > 0
                     }
                     positive = [
                         (tag, score)
@@ -226,15 +271,15 @@ async def run_llm_analysis(repository, preference_learner):
                 tag_limit=BOORU_TAGS_PER_SEARCH,
                 recent_tag_scores=recent_scores,
             )
-            
+
             db_profile = await repository.get_or_create_profile(session)
             db_profile.preferences = learned_profile.to_dict()
             await repository.save_profile(session, db_profile)
-            
+
             log_llm(
-                "CUMULATIVE TAGS (all-time): "
+                "CUMULATIVE TAGS (decayed): "
                 + ", ".join(
-                    f"{tag} ({data['liked_count']} likes, {data['disliked_count']} dislikes, net {data['net_count']:+d})"
+                    f"{tag} ({data['liked_count']} likes, {data['disliked_count']} dislikes, net {data['net_count']:+d}, score {data['rank_score']:+.2f})"
                     for tag, data in list(tag_freqs.items())[:10]
                 )
             )
@@ -253,7 +298,7 @@ async def run_llm_analysis(repository, preference_learner):
             log_llm(f"Traceback: {traceback.format_exc()}")
         finally:
             llm_state["is_processing"] = False
-            
+
             if llm_state["dirty"]:
                 llm_state["dirty"] = False
                 log_llm("Analysis complete: dirty=True, re-trigger=True")
@@ -337,6 +382,7 @@ async def select_next_image(
     BOORU_SEARCH_LIMIT = int(os.getenv("BOORU_SEARCH_LIMIT", "100"))
     BOORU_SEARCH_PAGES = int(os.getenv("BOORU_SEARCH_PAGES", "3"))
     BOORU_SEARCH_SLEEP = float(os.getenv("BOORU_SEARCH_SLEEP", "0.15"))
+    TAG_DECAY_HALF_LIFE_SWIPES = float(os.getenv("TAG_DECAY_HALF_LIFE_SWIPES", "30"))
     
     profile = await repository.get_or_create_profile()
     LLM_MIN_SWIPES = int(os.getenv("LLM_MIN_SWIPES", "10"))
@@ -356,15 +402,19 @@ async def select_next_image(
 
     image = None
     selected_search_tags: List[str] = []
-    cumulative_tag_scores: Dict[str, int] = {}
-    recent_tag_scores: Dict[str, int] = {}
+    cumulative_tag_scores: Dict[str, float] = {}
+    recent_tag_scores: Dict[str, float] = {}
 
     log_image("Selection started")
 
     if swipe_count >= LLM_MIN_SWIPES:
         tag_counts = await repository.get_tag_counts()
         cumulative_tag_scores = {
-            tag: counts["liked_count"] - counts["disliked_count"]
+            tag: decay_value(
+                counts["liked_count"] - counts["disliked_count"],
+                swipe_count - counts["last_swipe_index"],
+                TAG_DECAY_HALF_LIFE_SWIPES,
+            )
             for tag, counts in tag_counts.items()
         }
         recent_tag_scores = await repository.get_recent_tag_scores(limit=20)
@@ -581,6 +631,7 @@ async def record_swipe(
         )
     
     liked = swipe_request.direction == "right"
+    current_swipe_index = _session.swipe_count + 1
     
     if _session.current_image is None:
         raise HTTPException(
@@ -613,10 +664,15 @@ async def record_swipe(
             log_swipe(f"Recorded swiped image {swipe_request.image_id} (liked={liked})")
         
         for tag in current["tags"]:
-            await repository.update_tag_count(tag, liked, weight=swipe_request.weight)
+            await repository.update_tag_count(
+                tag,
+                liked,
+                weight=swipe_request.weight,
+                current_swipe_count=current_swipe_index,
+            )
         log_swipe(f"Tag counts updated for {len(current['tags'])} tags (weight={swipe_request.weight})")
         
-        _session.swipe_count += 1
+        _session.swipe_count = current_swipe_index
         _session.pending_swipes.append({
             "image_id": swipe_request.image_id,
             "liked": liked,

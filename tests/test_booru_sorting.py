@@ -8,7 +8,7 @@ import pytest
 from booruswipe.booru_sources import get_score_sort_tag
 from booruswipe.gelbooru.client import DanbooruClient, E621Client, GelbooruClient
 from booruswipe.gelbooru.models import Image
-from booruswipe.selection import pick_best_scored_unseen, pick_first_unseen, score_image
+from booruswipe.selection import decay_value, pick_best_scored_unseen, pick_first_unseen, score_image
 
 
 def _make_image(image_id: int, tag: str = "cat") -> Image:
@@ -110,6 +110,20 @@ def test_score_image_uses_cumulative_and_recent_weights():
     )
 
     assert score == pytest.approx(7.5)
+
+
+def test_decay_value_halves_on_half_life_boundary():
+    """A score should be cut in half after one half-life worth of swipes."""
+    score = decay_value(8.0, age_swipes=30, half_life_swipes=30)
+
+    assert score == pytest.approx(4.0)
+
+
+def test_decay_value_keeps_recent_scores_near_original():
+    """A score with very small swipe age should not lose much weight."""
+    score = decay_value(8.0, age_swipes=1, half_life_swipes=30)
+
+    assert score == pytest.approx(8.0, rel=3e-2)
 
 
 def test_pick_best_scored_unseen_prefers_highest_scoring_candidate():
