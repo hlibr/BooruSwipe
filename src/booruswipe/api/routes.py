@@ -335,7 +335,7 @@ async def select_next_image(
     BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "5"))
     BOORU_TAGS_PER_SEARCH_FALLBACK = int(os.getenv("BOORU_TAGS_PER_SEARCH_FALLBACK", "3"))
     BOORU_SEARCH_LIMIT = int(os.getenv("BOORU_SEARCH_LIMIT", "100"))
-    BOORU_SEARCH_PAGES = int(os.getenv("BOORU_SEARCH_PAGES", "5"))
+    BOORU_SEARCH_PAGES = int(os.getenv("BOORU_SEARCH_PAGES", "3"))
     BOORU_SEARCH_SLEEP = float(os.getenv("BOORU_SEARCH_SLEEP", "0.15"))
     
     profile = await repository.get_or_create_profile()
