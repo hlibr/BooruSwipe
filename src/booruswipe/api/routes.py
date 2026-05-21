@@ -249,7 +249,7 @@ async def run_llm_analysis(repository, preference_learner):
             tag_freqs = dict(positive_tag_items[:half_limit] + negative_tag_items[:half_limit])
 
             LLM_RECENT_FILTER_CUMULATIVE_LIKES = (
-                os.getenv("LLM_RECENT_FILTER_CUMULATIVE_LIKES", "true").lower() == "true"
+                os.getenv("LLM_RECENT_FILTER_CUMULATIVE_LIKES", "false").lower() == "true"
             )
 
             recent_scores = await repository.get_recent_tag_scores(limit=RECENT_SWIPES_WINDOW)
