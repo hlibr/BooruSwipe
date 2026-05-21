@@ -3,6 +3,7 @@
 import os
 
 SUPPORTED_BOORU_SOURCES = {"gelbooru", "danbooru", "e621"}
+SUPPORTED_BOORU_SEARCH_SORT_MODES = {"score", "random"}
 
 
 def get_booru_source() -> str:
@@ -26,6 +27,24 @@ def get_score_sort_tag(source: str | None = None) -> str:
     if booru_source == "gelbooru":
         return "sort:score"
     return "order:score"
+
+
+def get_search_sort_mode() -> str:
+    """Return the configured search sort mode."""
+    sort_mode = os.getenv("BOORU_SEARCH_SORT_MODE", "score").lower()
+    if sort_mode not in SUPPORTED_BOORU_SEARCH_SORT_MODES:
+        raise ValueError(f"Unsupported BOORU_SEARCH_SORT_MODE: {sort_mode}")
+    return sort_mode
+
+
+def get_search_sort_tag(source: str | None = None, sort_mode: str = "score") -> str:
+    """Return the source-specific query tag for the configured sort mode."""
+    normalized_sort_mode = sort_mode.lower()
+    if normalized_sort_mode == "score":
+        return get_score_sort_tag(source)
+    if normalized_sort_mode == "random":
+        return get_random_search_tag(source)
+    raise ValueError(f"Unsupported search sort mode: {sort_mode}")
 
 
 def get_post_url(source: str, image_id: int) -> str:

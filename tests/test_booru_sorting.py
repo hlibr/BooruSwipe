@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from booruswipe.booru_sources import get_score_sort_tag
+from booruswipe.booru_sources import get_score_sort_tag, get_search_sort_tag
 from booruswipe.gelbooru.client import DanbooruClient, E621Client, GelbooruClient
 from booruswipe.gelbooru.models import Image
 from booruswipe.selection import decay_value, pick_best_scored_unseen, pick_first_unseen, score_image
@@ -26,7 +26,7 @@ def _make_image(image_id: int, tag: str = "cat") -> Image:
     )
 
 
-async def _capture_search_tags(client: Any, tags: list[str], response: Any):
+async def _capture_search_tags(client: Any, tags: list[str], response: Any, **search_kwargs: Any):
     """Patch a client's request layer and capture the built query string."""
     captured: dict[str, Any] = {}
 
@@ -35,7 +35,7 @@ async def _capture_search_tags(client: Any, tags: list[str], response: Any):
         return response
 
     client._request = fake_request  # type: ignore[attr-defined]
-    images = await client.search_images(tags)
+    images = await client.search_images(tags, **search_kwargs)
     return captured["params"]["tags"], images
 
 
@@ -44,6 +44,16 @@ def test_score_sort_tags_match_source():
     assert get_score_sort_tag("gelbooru") == "sort:score"
     assert get_score_sort_tag("danbooru") == "order:score"
     assert get_score_sort_tag("e621") == "order:score"
+    assert get_search_sort_tag("gelbooru", "score") == "sort:score"
+    assert get_search_sort_tag("danbooru", "score") == "order:score"
+    assert get_search_sort_tag("e621", "score") == "order:score"
+
+
+def test_random_sort_tags_match_source():
+    """Each source should use the correct random sort tag."""
+    assert get_search_sort_tag("gelbooru", "random") == "sort:random"
+    assert get_search_sort_tag("danbooru", "random") == "random:1"
+    assert get_search_sort_tag("e621", "random") == "order:random"
 
 
 def test_clients_append_score_sort_tags():
@@ -54,11 +64,13 @@ def test_clients_append_score_sort_tags():
             DanbooruClient(),
             ["cat"],
             [{"id": 1, "tag_string": "cat", "file_url": "https://example.com/1.jpg", "file_ext": "jpg"}],
+            sort_mode="score",
         )
         gelbooru_tags, _ = await _capture_search_tags(
             GelbooruClient(),
             ["cat"],
             {"post": [{"id": 1, "tag_string": "cat", "file_url": "https://example.com/1.jpg", "file_ext": "jpg"}]},
+            sort_mode="score",
         )
         e621_tags, _ = await _capture_search_tags(
             E621Client(),
@@ -72,11 +84,50 @@ def test_clients_append_score_sort_tags():
                     }
                 ]
             },
+            sort_mode="score",
         )
 
         assert danbooru_tags == "cat order:score"
         assert gelbooru_tags == "cat sort:score"
         assert e621_tags == "cat order:score"
+
+    asyncio.run(scenario())
+
+
+def test_clients_append_random_sort_tags():
+    """Search queries should include random sorting when requested."""
+
+    async def scenario():
+        danbooru_tags, _ = await _capture_search_tags(
+            DanbooruClient(),
+            ["cat"],
+            [{"id": 1, "tag_string": "cat", "file_url": "https://example.com/1.jpg", "file_ext": "jpg"}],
+            sort_mode="random",
+        )
+        gelbooru_tags, _ = await _capture_search_tags(
+            GelbooruClient(),
+            ["cat"],
+            {"post": [{"id": 1, "tag_string": "cat", "file_url": "https://example.com/1.jpg", "file_ext": "jpg"}]},
+            sort_mode="random",
+        )
+        e621_tags, _ = await _capture_search_tags(
+            E621Client(),
+            ["cat"],
+            {
+                "posts": [
+                    {
+                        "id": 1,
+                        "tags": {"general": ["cat"]},
+                        "file": {"url": "https://example.com/1.jpg", "ext": "jpg"},
+                    }
+                ]
+            },
+            sort_mode="random",
+        )
+
+        assert danbooru_tags == "cat random:1"
+        assert gelbooru_tags == "cat sort:random"
+        assert e621_tags == "cat order:random"
 
     asyncio.run(scenario())
 

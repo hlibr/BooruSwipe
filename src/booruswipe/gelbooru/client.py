@@ -6,7 +6,7 @@ from urllib.parse import urlencode
 
 import httpx
 
-from booruswipe.booru_sources import get_score_sort_tag
+from booruswipe.booru_sources import get_search_sort_mode, get_search_sort_tag
 from .models import Image
 
 logger = logging.getLogger(__name__)
@@ -88,7 +88,7 @@ class DanbooruClient:
         tags: List[str],
         limit: int = 100,
         page: int = 0,
-        sort_by_score: bool = True,
+        sort_mode: Optional[str] = None,
     ) -> List[Image]:
         """Search for images by tags.
 
@@ -96,6 +96,7 @@ class DanbooruClient:
             tags: List of tags to search for.
             limit: Maximum number of images to return (max 100).
             page: Page number (0-indexed) for pagination.
+            sort_mode: Search sort mode ("score", "random", or "none").
 
         Returns:
             List of Image objects matching the search criteria.
@@ -105,10 +106,16 @@ class DanbooruClient:
 
         BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "5"))
         query_tags = tags[:BOORU_TAGS_PER_SEARCH]
-        if sort_by_score:
-            query_tags = [*query_tags, get_score_sort_tag("danbooru")]
+        effective_sort_mode = (sort_mode or get_search_sort_mode()).lower()
+        if effective_sort_mode not in {"score", "random", "none"}:
+            raise ValueError(f"Unsupported search sort mode: {effective_sort_mode}")
+        if effective_sort_mode != "none":
+            query_tags = [*query_tags, get_search_sort_tag("danbooru", effective_sort_mode)]
         tag_string = " ".join(query_tags)
-        log_image(f"Searching Danbooru for tags: {tag_string} (page={page}, limit={limit})")
+        log_image(
+            f"Searching Danbooru for tags: {tag_string} "
+            f"(sort_mode={effective_sort_mode}, page={page}, limit={limit})"
+        )
         data = await self._request(tags=tag_string, limit=str(limit), page=str(page))
 
         if not data:
@@ -229,7 +236,7 @@ class GelbooruClient:
         tags: List[str],
         limit: int = 100,
         page: int = 0,
-        sort_by_score: bool = True,
+        sort_mode: Optional[str] = None,
     ) -> List[Image]:
         """Search for images by tags.
 
@@ -237,6 +244,7 @@ class GelbooruClient:
             tags: List of tags to search for.
             limit: Maximum number of images to return (max 100).
             page: Page number (0-indexed) for pagination.
+            sort_mode: Search sort mode ("score", "random", or "none").
 
         Returns:
             List of Image objects matching the search criteria.
@@ -246,10 +254,16 @@ class GelbooruClient:
 
         BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "5"))
         query_tags = tags[:BOORU_TAGS_PER_SEARCH]
-        if sort_by_score:
-            query_tags = [*query_tags, get_score_sort_tag("gelbooru")]
+        effective_sort_mode = (sort_mode or get_search_sort_mode()).lower()
+        if effective_sort_mode not in {"score", "random", "none"}:
+            raise ValueError(f"Unsupported search sort mode: {effective_sort_mode}")
+        if effective_sort_mode != "none":
+            query_tags = [*query_tags, get_search_sort_tag("gelbooru", effective_sort_mode)]
         tag_string = " ".join(query_tags)
-        log_image(f"Searching Gelbooru for tags: {tag_string} (page={page}, limit={limit})")
+        log_image(
+            f"Searching Gelbooru for tags: {tag_string} "
+            f"(sort_mode={effective_sort_mode}, page={page}, limit={limit})"
+        )
         data = await self._request(tags=tag_string, limit=limit, pid=page)
 
         posts = data.get("post", []) if isinstance(data, dict) else data
@@ -354,7 +368,7 @@ class E621Client:
         last_error: Optional[Exception] = None
         for random_tag in ("order:random", "random:1"):
             try:
-                images = await self.search_images([random_tag], limit=1, page=0, sort_by_score=False)
+                images = await self.search_images([random_tag], limit=1, page=0, sort_mode="none")
             except Exception as exc:
                 last_error = exc
                 continue
@@ -371,7 +385,7 @@ class E621Client:
         tags: List[str],
         limit: int = 100,
         page: int = 0,
-        sort_by_score: bool = True,
+        sort_mode: Optional[str] = None,
     ) -> List[Image]:
         """Search for images by tags."""
         if limit > 320:
@@ -379,11 +393,17 @@ class E621Client:
 
         BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "5"))
         query_tags = tags[:BOORU_TAGS_PER_SEARCH]
-        if sort_by_score:
-            query_tags = [*query_tags, get_score_sort_tag("e621")]
+        effective_sort_mode = (sort_mode or get_search_sort_mode()).lower()
+        if effective_sort_mode not in {"score", "random", "none"}:
+            raise ValueError(f"Unsupported search sort mode: {effective_sort_mode}")
+        if effective_sort_mode != "none":
+            query_tags = [*query_tags, get_search_sort_tag("e621", effective_sort_mode)]
         tag_string = " ".join(query_tags)
         api_page = page + 1
-        log_image(f"Searching e621 for tags: {tag_string} (page={page}, limit={limit})")
+        log_image(
+            f"Searching e621 for tags: {tag_string} "
+            f"(sort_mode={effective_sort_mode}, page={page}, limit={limit})"
+        )
         data = await self._request(tags=tag_string, limit=str(limit), page=str(api_page))
 
         posts = self._extract_posts(data)

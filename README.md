@@ -20,7 +20,7 @@ https://github.com/user-attachments/assets/3214239a-606b-4f72-a898-6bcedf7c2ff3
 4. Those tags drive the next round of image fetching
 5. If no LLM is configured, it falls back to your top liked tags directly
 
-One important nuance: BooruSwipe improves *search queries*, not image ranking. It's adaptive search term generation — it won't score individual images within results, just get better at finding the right pool to pull from.
+One important nuance: BooruSwipe improves *search queries* and also locally ranks the returned candidates. It is still adaptive search term generation, but it can now choose the best unseen image from the pool it fetches.
 
 You can also submit stronger feedback with the `x2` buttons. Holding an `x2` button opens `x3` / `x4` / `x5` multipliers for even stronger like or dislike signals.
 
@@ -185,6 +185,7 @@ BOORU_SOURCE=gelbooru  # or: danbooru, e621
 | `LLM_RECENT_FILTER_CUMULATIVE_LIKES` | No | `true` | Filter recent positives already in cumulative likes before sending to LLM |
 | `BOORU_TAGS_PER_SEARCH` | No | `5` | Max tags used in the primary search query |
 | `BOORU_TAGS_PER_SEARCH_FALLBACK` | No | `3` | Max tags used in the fallback search query |
+| `BOORU_SEARCH_SORT_MODE` | No | `score` | Sort mode for normal searches (`score` or `random`) |
 | `TAG_DECAY_HALF_LIFE_SWIPES` | No | `30` | Half-life in swipes for tag score decay used by ranking and LLM input |
 | `RANDOM_IMAGE_CHANCE` | No | `5` | % chance to show a random image instead of a recommendation |
 | `DOUBLE_LIKED_NEVER_IGNORE` | No | `false` | Exempt double-liked images from repeat filtering |

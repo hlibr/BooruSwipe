@@ -18,7 +18,7 @@ from booruswipe.api.deps import (
     get_optional_preference_learner,
     get_repository,
 )
-from booruswipe.booru_sources import get_booru_source, get_post_url, get_random_search_tag
+from booruswipe.booru_sources import get_booru_source, get_post_url, get_random_search_tag, get_search_sort_mode
 from booruswipe.db.repository import Repository
 from booruswipe.gelbooru.client import BooruClient
 from booruswipe.llm.preference_learner import PreferenceLearner
@@ -382,6 +382,7 @@ async def select_next_image(
     BOORU_SEARCH_LIMIT = int(os.getenv("BOORU_SEARCH_LIMIT", "100"))
     BOORU_SEARCH_PAGES = int(os.getenv("BOORU_SEARCH_PAGES", "3"))
     BOORU_SEARCH_SLEEP = float(os.getenv("BOORU_SEARCH_SLEEP", "0.15"))
+    BOORU_SEARCH_SORT_MODE = get_search_sort_mode()
     TAG_DECAY_HALF_LIFE_SWIPES = float(os.getenv("TAG_DECAY_HALF_LIFE_SWIPES", "30"))
     
     profile = await repository.get_or_create_profile()
@@ -422,18 +423,18 @@ async def select_next_image(
     async def search_with_pagination(
         tags: List[str],
         limit: int = None,
-        sort_by_score: bool = True,
+        sort_mode: Optional[str] = None,
         rank_candidates: bool = True,
     ) -> Optional[Any]:
-        """Search with pagination, optionally ranking unseen candidates locally.
+        """Search with pagination and optionally rank unseen candidates locally.
 
-        Stops early when:
-        - A ranked candidate is found for the current page
-        - A page returns 0 images (no more results)
-        - A page returns fewer than `limit` images (last page with data)
+        Scans up to BOORU_SEARCH_PAGES pages, keeping the best unseen candidate
+        seen across the fetched pages.
         """
         if limit is None:
             limit = BOORU_SEARCH_LIMIT
+
+        effective_sort_mode = (sort_mode or BOORU_SEARCH_SORT_MODE).lower()
 
         best_image = None
         best_score = float("-inf")
@@ -442,7 +443,7 @@ async def select_next_image(
             if page > 0:
                 await asyncio.sleep(BOORU_SEARCH_SLEEP)
 
-            images = await booru_client.search_images(tags, limit=limit, page=page, sort_by_score=sort_by_score)
+            images = await booru_client.search_images(tags, limit=limit, page=page, sort_mode=effective_sort_mode)
             log_image(f"Page {page}: {booru_label} returned {len(images)} images")
 
             # Stop if no more results from API
@@ -486,7 +487,7 @@ async def select_next_image(
         if swipe_count < LLM_MIN_SWIPES:
             log_image(f"Below LLM threshold ({swipe_count} < {LLM_MIN_SWIPES}) - selecting random seed image")
             random_tag = get_random_tag()
-            image = await search_with_pagination([random_tag], sort_by_score=False, rank_candidates=False)
+            image = await search_with_pagination([random_tag], sort_mode="none", rank_candidates=False)
             if image:
                 selected_search_tags = [random_tag]
 
@@ -531,7 +532,7 @@ async def select_next_image(
             await asyncio.sleep(0.5)
             log_image("Level 3 - Using random image (no tags available)")
             random_tag = get_random_tag()
-            image = await search_with_pagination([random_tag], sort_by_score=False, rank_candidates=False)
+            image = await search_with_pagination([random_tag], sort_mode="none", rank_candidates=False)
             if image:
                 selected_search_tags = [random_tag]
 

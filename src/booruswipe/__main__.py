@@ -13,7 +13,7 @@ from typing import Optional
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from booruswipe.booru_sources import SUPPORTED_BOORU_SOURCES, get_booru_source
+from booruswipe.booru_sources import SUPPORTED_BOORU_SOURCES, get_booru_source, get_search_sort_mode
 from booruswipe.db.repository import Repository
 from booruswipe.gelbooru.client import DanbooruClient, E621Client, GelbooruClient
 from booruswipe.llm.client import LLMClient
@@ -162,6 +162,7 @@ async def lifespan(app):
     llm_settings = {}
     LLM_MAX_TAGS = int(os.getenv("LLM_MAX_TAGS", "30"))
     BOORU_SOURCE = get_booru_source()
+    BOORU_SEARCH_SORT_MODE = get_search_sort_mode()
     BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "5"))
     if BOORU_SOURCE not in SUPPORTED_BOORU_SOURCES:
         raise ValueError(f"Unsupported BOORU_SOURCE: {BOORU_SOURCE}")
@@ -183,6 +184,7 @@ async def lifespan(app):
     log_startup(f"Loaded {len(tag_counts)} unique tags from database")
     
     log_startup(f"Using booru source: {BOORU_SOURCE}")
+    log_startup(f"Using search sort mode: {BOORU_SEARCH_SORT_MODE}")
     log_startup(f"Using up to {BOORU_TAGS_PER_SEARCH} tags per search")
 
     if BOORU_SOURCE == "gelbooru":

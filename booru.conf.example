@@ -31,6 +31,7 @@ e621_user_id=
 # LLM_RECENT_FILTER_CUMULATIVE_LIKES=true
 # BOORU_TAGS_PER_SEARCH=5
 # BOORU_TAGS_PER_SEARCH_FALLBACK=3
+# BOORU_SEARCH_SORT_MODE=score       # Normal search sort mode: score or random
 # TAG_DECAY_HALF_LIFE_SWIPES=30  # Half-life in swipes for tag score decay used by ranking and LLM input
 # RANDOM_IMAGE_CHANCE=5
 # DOUBLE_LIKED_NEVER_IGNORE=false
