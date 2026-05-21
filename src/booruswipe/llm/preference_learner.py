@@ -187,7 +187,7 @@ Top disliked: {disliked_tags_str if disliked_tags_str else "No tags available"}
             recent_str = ", ".join(f"{tag} ({score:+d})" for tag, score in sorted_recent)
             prompt += f"""
 
-RECENT TREND (likes/dislikes):
+RECENT SWIPES (likes/dislikes):
 {recent_str if recent_str else "No recent data"}
 """
 

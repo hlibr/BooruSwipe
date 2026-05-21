@@ -1,9 +1,9 @@
 """System prompt for LLM preference learning."""
 
 SYSTEM_PROMPT = """Your goal is to evaluate the user's image preferences and generate a list of tags for the next query.
-You will be provided a list of the user's total liked and disliked tags, as well as the recent trend.
+You will be provided a list of the user's total liked and disliked tags, as well as the recent swipes.
 Choose the tags for the next image to show to the user. Make sure the tags fit together well, maybe paint some kind of a story, are varied and fun. Feel free to be a bit creative with it, but don't invent new tags..
-Consider the recent trend when deciding.
+Consider the recent swipes when deciding.
 
 You are to respond in JSON format with this structure:
 {
