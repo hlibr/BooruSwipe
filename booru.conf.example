@@ -29,6 +29,7 @@ e621_user_id=
 # LLM_RECENT_POSITIVE=10      # Top positive recent tags to send to LLM
 # LLM_RECENT_NEGATIVE=10      # Top negative recent tags to send to LLM
 # LLM_RECENT_FILTER_CUMULATIVE_LIKES=true
+# RECENT_SWIPES_WINDOW=5      # Recent swipe window used for ranking and LLM input
 # BOORU_TAGS_PER_SEARCH=5
 # BOORU_TAGS_PER_SEARCH_FALLBACK=3
 # BOORU_SEARCH_SORT_MODE=score       # Normal search sort mode: score or random

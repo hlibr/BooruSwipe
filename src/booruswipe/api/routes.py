@@ -191,6 +191,7 @@ async def run_llm_analysis(repository, preference_learner):
     LLM_MAX_TAGS = int(os.getenv("LLM_MAX_TAGS", "30"))
     BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "5"))
     TAG_DECAY_HALF_LIFE_SWIPES = float(os.getenv("TAG_DECAY_HALF_LIFE_SWIPES", "30"))
+    RECENT_SWIPES_WINDOW = int(os.getenv("RECENT_SWIPES_WINDOW", "5"))
     
     async with repository.async_sessionmaker() as session:
         try:
@@ -247,7 +248,7 @@ async def run_llm_analysis(repository, preference_learner):
                 os.getenv("LLM_RECENT_FILTER_CUMULATIVE_LIKES", "true").lower() == "true"
             )
 
-            recent_scores = await repository.get_recent_tag_scores(limit=20)
+            recent_scores = await repository.get_recent_tag_scores(limit=RECENT_SWIPES_WINDOW)
 
             # Compact to top N positive and M negative
             if recent_scores:
@@ -384,6 +385,7 @@ async def select_next_image(
     BOORU_SEARCH_SLEEP = float(os.getenv("BOORU_SEARCH_SLEEP", "0.15"))
     BOORU_SEARCH_SORT_MODE = get_search_sort_mode()
     TAG_DECAY_HALF_LIFE_SWIPES = float(os.getenv("TAG_DECAY_HALF_LIFE_SWIPES", "30"))
+    RECENT_SWIPES_WINDOW = int(os.getenv("RECENT_SWIPES_WINDOW", "5"))
     
     profile = await repository.get_or_create_profile()
     LLM_MIN_SWIPES = int(os.getenv("LLM_MIN_SWIPES", "10"))
@@ -418,7 +420,7 @@ async def select_next_image(
             )
             for tag, counts in tag_counts.items()
         }
-        recent_tag_scores = await repository.get_recent_tag_scores(limit=20)
+        recent_tag_scores = await repository.get_recent_tag_scores(limit=RECENT_SWIPES_WINDOW)
 
     async def search_with_pagination(
         tags: List[str],
