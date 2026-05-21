@@ -276,3 +276,124 @@ class GelbooruClient:
         
         post = posts[0] if isinstance(posts, list) else posts
         return Image.from_api(post)
+
+
+class E621Client:
+    """Async client for e621 API."""
+
+    BASE_URL = "https://e621.net/posts.json"
+
+    def __init__(self, api_key: Optional[str] = None, user_id: Optional[str] = None):
+        """Initialize the e621 client.
+
+        Args:
+            api_key: Optional API key for higher rate limits
+            user_id: Optional e621 username for authenticated requests
+        """
+        self.api_key = api_key
+        self.user_id = user_id
+        self._client: Optional[httpx.AsyncClient] = None
+
+    async def __aenter__(self) -> "E621Client":
+        """Async context manager entry."""
+        self._client = httpx.AsyncClient()
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Async context manager exit."""
+        if self._client:
+            await self._client.aclose()
+            self._client = None
+
+    async def _request(self, **params) -> dict:
+        """Make a request to the e621 API."""
+        if self._client is None:
+            self._client = httpx.AsyncClient(
+                headers={"User-Agent": "BooruSwipe/1.0"},
+                follow_redirects=True,
+            )
+
+        self._client.headers = {"User-Agent": "BooruSwipe/1.0"}
+        self._client.auth = (
+            httpx.BasicAuth(self.user_id, self.api_key)
+            if self.user_id and self.api_key
+            else None
+        )
+
+        url = f"{self.BASE_URL}?{urlencode(params)}"
+
+        response = await self._client.get(url)
+        response.raise_for_status()
+        return response.json()
+
+    @staticmethod
+    def _extract_posts(data: object) -> List[dict]:
+        """Normalize e621 responses into a list of post dictionaries."""
+        if isinstance(data, dict):
+            posts = data.get("posts", data.get("post", []))
+            if isinstance(posts, list):
+                return posts
+            if isinstance(posts, dict):
+                return [posts]
+            return []
+        if isinstance(data, list):
+            return data
+        return []
+
+    async def get_random_image(self) -> Image:
+        """Fetch a random image from e621."""
+        log_image("Requesting random image from e621")
+
+        last_error: Optional[Exception] = None
+        for random_tag in ("order:random", "random:1"):
+            try:
+                images = await self.search_images([random_tag], limit=1, page=0)
+            except Exception as exc:
+                last_error = exc
+                continue
+
+            if images:
+                return images[0]
+
+        if last_error is not None:
+            raise last_error
+        raise ValueError("No images found")
+
+    async def search_images(
+        self,
+        tags: List[str],
+        limit: int = 100,
+        page: int = 0,
+    ) -> List[Image]:
+        """Search for images by tags."""
+        if limit > 320:
+            limit = 320
+
+        BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "5"))
+        tags = tags[:BOORU_TAGS_PER_SEARCH]
+        tag_string = " ".join(tags)
+        api_page = page + 1
+        log_image(f"Searching e621 for tags: {tag_string} (page={page}, limit={limit})")
+        data = await self._request(tags=tag_string, limit=str(limit), page=str(api_page))
+
+        posts = self._extract_posts(data)
+
+        if not posts:
+            log_image(f"No images found for tags: {tag_string}")
+            return []
+
+        log_image(f"Found {len(posts)} images for tags: {tag_string}")
+        return [Image.from_api(post) for post in posts]
+
+    async def get_post(self, post_id: int) -> Image:
+        """Fetch a specific post by ID."""
+        log_image(f"Fetching post {post_id} from e621")
+        images = await self.search_images([f"id:{post_id}"], limit=1, page=0)
+
+        if not images:
+            raise ValueError(f"Post {post_id} not found")
+
+        return images[0]
+
+
+BooruClient = DanbooruClient | GelbooruClient | E621Client

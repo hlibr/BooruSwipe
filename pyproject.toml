@@ -1,7 +1,7 @@
 [project]
 name = "booruswipe"
 version = "0.1.0"
-description = "Gelbooru image preference learner"
+description = "Booru image preference learner"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

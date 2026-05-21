@@ -1,6 +1,6 @@
-"""BooruSwipe - Danbooru image retrieval and swipe application."""
+"""BooruSwipe - booru image retrieval and swipe application."""
 
-from .client import DanbooruClient
+from .client import BooruClient, DanbooruClient, E621Client, GelbooruClient
 from .models import Image, Tag
 
-__all__ = ["DanbooruClient", "Image", "Tag"]
+__all__ = ["BooruClient", "DanbooruClient", "E621Client", "GelbooruClient", "Image", "Tag"]

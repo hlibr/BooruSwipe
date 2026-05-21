@@ -1,6 +1,6 @@
 # BooruSwipe
 
-A Tinder-like image browser for [Gelbooru](https://gelbooru.com) and [Danbooru](https://danbooru.donmai.us) with AI-powered next image selection.
+A Tinder-like image browser for [Gelbooru](https://gelbooru.com), [Danbooru](https://danbooru.donmai.us), and [e621](https://e621.net) with AI-powered next image selection.
 
 Swipe right on images you like, left on ones you don't. BooruSwipe tracks tag-level feedback and uses an LLM to continuously refine its search queries — so the longer you use it, the more it learns what you're into.
 
@@ -32,6 +32,7 @@ You can also submit stronger feedback with the `x2` buttons. Holding an `x2` but
 - Credentials for one of:
   - **Gelbooru** — [get your API key and user ID here](https://gelbooru.com/index.php?page=account&s=options) (bottom of the page)
   - **Danbooru** — [get your API key and username here](https://danbooru.donmai.us/profile)
+  - **e621** — [get your API key and username here](https://e621.net/help/api)
 - An LLM (optional, but recommended):
   - Any OpenAI-compatible API
   - [Ollama](https://ollama.com)
@@ -70,6 +71,18 @@ model=gpt-4o-mini
 BOORU_SOURCE=danbooru
 danbooru_api_key=YOUR_DANBOORU_API_KEY
 danbooru_user_id=YOUR_DANBOORU_LOGIN
+
+# LLM (optional)
+api_key=your-api-key
+base_url=https://api.openai.com/v1
+model=gpt-4o-mini
+```
+
+**e621:**
+```bash
+BOORU_SOURCE=e621
+e621_api_key=YOUR_E621_API_KEY
+e621_user_id=YOUR_E621_USERNAME
 
 # LLM (optional)
 api_key=your-api-key
@@ -138,7 +151,7 @@ All configuration lives in `booru.conf`.
 ### Booru source
 
 ```bash
-BOORU_SOURCE=gelbooru  # or: danbooru
+BOORU_SOURCE=gelbooru  # or: danbooru, e621
 ```
 
 ### LLM providers
@@ -153,11 +166,13 @@ BOORU_SOURCE=gelbooru  # or: danbooru
 
 | Setting | Required | Default | Description |
 |---|---|---|---|
-| `BOORU_SOURCE` | Yes | `gelbooru` | Which booru to use (`gelbooru` or `danbooru`) |
+| `BOORU_SOURCE` | Yes | `gelbooru` | Which booru to use (`gelbooru`, `danbooru`, or `e621`) |
 | `gelbooru_api_key` | If Gelbooru | — | Gelbooru API key |
 | `gelbooru_user_id` | If Gelbooru | — | Gelbooru user ID |
 | `danbooru_api_key` | If Danbooru | — | Danbooru API key |
 | `danbooru_user_id` | If Danbooru | — | Danbooru login name |
+| `e621_api_key` | If e621 | — | e621 API key |
+| `e621_user_id` | If e621 | — | e621 username |
 | `api_key` | No | — | LLM provider API key |
 | `base_url` | No | `https://api.openai.com/v1` | LLM provider base URL |
 | `model` | No | — | Model name for chat completions |
@@ -210,7 +225,7 @@ python -m booruswipe --reset-db    # wipe the local database
 - Track tag *combinations*, not just independent tags
 - Smarter exploration beyond random chance
 - Per-user session handling
-- Live integration tests for Danbooru, Gelbooru, and LLM providers
+- Live integration tests for Danbooru, Gelbooru, e621, and LLM providers
 
 ---
 

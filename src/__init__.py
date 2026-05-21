@@ -1,1 +1,1 @@
-"""BooruSwipe - Gelbooru image preference learning application."""
+"""BooruSwipe - booru image preference learning application."""

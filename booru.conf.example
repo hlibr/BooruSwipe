@@ -6,7 +6,7 @@ api_key=
 base_url=https://api.openai.com/v1
 model=
 
-# Booru Source (danbooru or gelbooru)
+# Booru Source (gelbooru, danbooru, or e621)
 BOORU_SOURCE=gelbooru
 
 # Danbooru API
@@ -16,6 +16,10 @@ danbooru_user_id=
 # Gelbooru API
 gelbooru_api_key=
 gelbooru_user_id=
+
+# e621 API
+e621_api_key=
+e621_user_id=
 
 # Advanced Settings (optional - defaults shown)
 # LLM_MIN_SWIPES=10

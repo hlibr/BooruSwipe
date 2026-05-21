@@ -652,6 +652,10 @@ class SwipeCard {
             this.postLink.textContent = 'View on Danbooru';
             return;
         }
+        if (lowerUrl.includes('e621.net')) {
+            this.postLink.textContent = 'View on e621';
+            return;
+        }
         this.postLink.textContent = 'View Post';
     }
     

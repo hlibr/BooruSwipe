@@ -13,8 +13,9 @@ from typing import Optional
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
+from booruswipe.booru_sources import SUPPORTED_BOORU_SOURCES, get_booru_source
 from booruswipe.db.repository import Repository
-from booruswipe.gelbooru.client import DanbooruClient, GelbooruClient
+from booruswipe.gelbooru.client import DanbooruClient, E621Client, GelbooruClient
 from booruswipe.llm.client import LLMClient
 from booruswipe.api.deps import set_dependencies, set_verbose_mode
 from booruswipe.api.routes import router, _session
@@ -23,6 +24,7 @@ from dotenv import load_dotenv
 repo: Optional[Repository] = None
 danbooru_client: Optional[DanbooruClient] = None
 gelbooru_client: Optional[GelbooruClient] = None
+e621_client: Optional[E621Client] = None
 llm_client: Optional[LLMClient] = None
 llm_settings: dict[str, str] = {}
 verbose: bool = False
@@ -121,31 +123,12 @@ def _load_llm_settings() -> dict[str, str]:
     return settings
 
 
-def _load_danbooru_settings() -> dict[str, str]:
-    """Load Danbooru API settings from .env file."""
+def _load_booru_settings(source: str) -> dict[str, str]:
+    """Load booru API settings from the config file."""
     settings_path = _get_settings_path()
     settings = {
-        "danbooru_api_key": "",
-        "danbooru_user_id": "",
-    }
-    if settings_path.exists():
-        with open(settings_path) as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#") and "=" in line:
-                    key, value = line.split("=", 1)
-                    key = key.strip().lower()
-                    if key in settings:
-                        settings[key] = value.strip()
-    return settings
-
-
-def _load_gelbooru_settings() -> dict[str, str]:
-    """Load Gelbooru API settings from .env file."""
-    settings_path = _get_settings_path()
-    settings = {
-        "gelbooru_api_key": "",
-        "gelbooru_user_id": "",
+        f"{source}_api_key": "",
+        f"{source}_user_id": "",
     }
     if settings_path.exists():
         with open(settings_path) as f:
@@ -170,10 +153,19 @@ def _save_llm_settings(settings: dict[str, str]) -> None:
 
 @asynccontextmanager
 async def lifespan(app):
-    global repo, danbooru_client, gelbooru_client, llm_client, llm_settings, verbose
+    global repo, danbooru_client, gelbooru_client, e621_client, llm_client, llm_settings, verbose
+    repo = None
+    danbooru_client = None
+    gelbooru_client = None
+    e621_client = None
+    llm_client = None
+    llm_settings = {}
     LLM_MAX_TAGS = int(os.getenv("LLM_MAX_TAGS", "30"))
-    BOORU_SOURCE = os.getenv("BOORU_SOURCE", "gelbooru").lower()
+    BOORU_SOURCE = get_booru_source()
     BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "5"))
+    if BOORU_SOURCE not in SUPPORTED_BOORU_SOURCES:
+        raise ValueError(f"Unsupported BOORU_SOURCE: {BOORU_SOURCE}")
+
     repo = Repository()
     await repo.init_db()
     
@@ -192,9 +184,9 @@ async def lifespan(app):
     
     log_startup(f"Using booru source: {BOORU_SOURCE}")
     log_startup(f"Using up to {BOORU_TAGS_PER_SEARCH} tags per search")
-    
+
     if BOORU_SOURCE == "gelbooru":
-        gelbooru_settings = _load_gelbooru_settings()
+        gelbooru_settings = _load_booru_settings("gelbooru")
         gelbooru_client = GelbooruClient(
             api_key=gelbooru_settings.get("gelbooru_api_key"),
             user_id=gelbooru_settings.get("gelbooru_user_id"),
@@ -204,14 +196,28 @@ async def lifespan(app):
             log_startup("Gelbooru client initialized with API authentication")
         else:
             log_startup("Gelbooru client initialized (no API credentials)")
-    else:
-        danbooru_settings = _load_danbooru_settings()
+    elif BOORU_SOURCE == "danbooru":
+        danbooru_settings = _load_booru_settings("danbooru")
         danbooru_client = DanbooruClient(
             api_key=danbooru_settings.get("danbooru_api_key"),
             user_id=danbooru_settings.get("danbooru_user_id"),
         )
         await danbooru_client.__aenter__()
-        log_startup("Danbooru client initialized")
+        if danbooru_settings.get("danbooru_api_key") and danbooru_settings.get("danbooru_user_id"):
+            log_startup("Danbooru client initialized with API authentication")
+        else:
+            log_startup("Danbooru client initialized (no API credentials)")
+    else:
+        e621_settings = _load_booru_settings("e621")
+        e621_client = E621Client(
+            api_key=e621_settings.get("e621_api_key"),
+            user_id=e621_settings.get("e621_user_id"),
+        )
+        await e621_client.__aenter__()
+        if e621_settings.get("e621_api_key") and e621_settings.get("e621_user_id"):
+            log_startup("E621 client initialized with API authentication")
+        else:
+            log_startup("E621 client initialized (no API credentials)")
     
     llm_settings = _load_llm_settings()
     api_key = llm_settings.get("api_key")
@@ -243,6 +249,7 @@ async def lifespan(app):
         repository=repo,
         danbooru_client=danbooru_client,
         gelbooru_client=gelbooru_client,
+        e621_client=e621_client,
         llm_client=llm_client,
     )
     set_verbose_mode(verbose)
@@ -252,6 +259,8 @@ async def lifespan(app):
         await danbooru_client.__aexit__(None, None, None)
     if gelbooru_client:
         await gelbooru_client.__aexit__(None, None, None)
+    if e621_client:
+        await e621_client.__aexit__(None, None, None)
     await repo.close()
 
 
@@ -274,7 +283,7 @@ if _STATIC_DIR.exists():
 def main():
     import uvicorn
 
-    parser = argparse.ArgumentParser(description="BooruSwipe - Danbooru image preference learning application")
+    parser = argparse.ArgumentParser(description="BooruSwipe - Booru image preference learning application")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose logging")
     parser.add_argument('--reset-db', action='store_true', 
                         help='Reset all data (swipes, tag counts, profile) and start fresh')

@@ -3,7 +3,7 @@
 import logging
 import os
 import asyncio
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -18,8 +18,9 @@ from booruswipe.api.deps import (
     get_optional_preference_learner,
     get_repository,
 )
+from booruswipe.booru_sources import get_booru_source, get_post_url, get_random_search_tag
 from booruswipe.db.repository import Repository
-from booruswipe.gelbooru.client import DanbooruClient, GelbooruClient
+from booruswipe.gelbooru.client import BooruClient
 from booruswipe.llm.preference_learner import PreferenceLearner
 
 logger = logging.getLogger(__name__)
@@ -44,13 +45,9 @@ def get_random_tag() -> str:
     """Get the correct random tag for the configured booru source.
     
     Returns:
-        str: "sort:random" for Gelbooru, "random:1" for Danbooru
+        str: Source-specific random search tag.
     """
-    booru_source = os.getenv("BOORU_SOURCE", "gelbooru").lower()
-    if booru_source == "gelbooru":
-        return "sort:random"
-    else:
-        return "random:1"
+    return get_random_search_tag(get_booru_source())
 
 
 router = APIRouter(prefix="/api")
@@ -77,7 +74,7 @@ class ImageResponse(BaseModel):
 async def serve_image(
     image_id: int,
     repository: Repository = Depends(get_repository),
-    booru_client: Union[DanbooruClient, GelbooruClient] = Depends(get_booru_client),
+    booru_client: BooruClient = Depends(get_booru_client),
 ) -> Response:
     """Proxy image through backend to bypass Gelbooru hotlink protection.
     
@@ -94,10 +91,11 @@ async def serve_image(
     
     # Fetch image bytes with credentials and proper headers
     async with httpx.AsyncClient() as client:
-        # Set Referer to tell Gelbooru this is a legitimate post view
-        headers = {
-            "Referer": f"https://gelbooru.com/index.php?page=post&s=view&id={image_id}"
-        }
+        # Set Referer to the current post page when the source expects it.
+        headers = {}
+        booru_source = get_booru_source()
+        if booru_source in {"gelbooru", "danbooru", "e621"}:
+            headers["Referer"] = get_post_url(booru_source, image_id)
         response = await client.get(image_url, headers=headers)
         
         # If we got HTML or some other unsupported response, try sample_url as fallback
@@ -280,7 +278,7 @@ async def maybe_trigger_llm(repository, preference_learner):
 
 
 def _build_image_response(image: Any, booru_source: str, search_tags: Optional[List[str]] = None) -> ImageResponse:
-    """Build image response with correct URL (proxy for Gelbooru)."""
+    """Build image response with the correct source-specific URL."""
     display_url = image.sample_url or image.url
     lower_display_url = display_url.lower()
     if lower_display_url.endswith(".mp4"):
@@ -292,10 +290,13 @@ def _build_image_response(image: Any, booru_source: str, search_tags: Optional[L
 
     if booru_source == "gelbooru":
         url = f"/api/image/{image.id}"  # Proxy URL
-        post_url = f"https://gelbooru.com/index.php?page=post&s=view&id={image.id}"
+        post_url = get_post_url(booru_source, image.id)
+    elif booru_source == "e621":
+        url = display_url
+        post_url = get_post_url(booru_source, image.id)
     else:
         url = display_url
-        post_url = f"https://danbooru.donmai.us/posts/{image.id}"
+        post_url = get_post_url(booru_source, image.id)
 
     return ImageResponse(
         id=image.id,
@@ -312,7 +313,7 @@ def _build_image_response(image: Any, booru_source: str, search_tags: Optional[L
 
 async def select_next_image(
     repository: Repository,
-    booru_client: Union[DanbooruClient, GelbooruClient],
+    booru_client: BooruClient,
     preference_learner: Optional[PreferenceLearner],
     seen_ids: set[int],
     swipe_count: int,
@@ -338,6 +339,8 @@ async def select_next_image(
     
     profile = await repository.get_or_create_profile()
     LLM_MIN_SWIPES = int(os.getenv("LLM_MIN_SWIPES", "10"))
+    booru_source = get_booru_source()
+    booru_label = booru_source.title()
 
     # Read env vars at runtime (after .env is loaded)
     RANDOM_IMAGE_CHANCE = int(os.getenv("RANDOM_IMAGE_CHANCE", "5"))
@@ -371,7 +374,7 @@ async def select_next_image(
                 await asyncio.sleep(BOORU_SEARCH_SLEEP)
 
             images = await booru_client.search_images(tags, limit=limit, page=page)
-            log_image(f"Page {page}: Gelbooru returned {len(images)} images")
+            log_image(f"Page {page}: {booru_label} returned {len(images)} images")
 
             # Stop if no more results from API
             if len(images) == 0:
@@ -469,7 +472,7 @@ async def select_next_image(
 @router.get("/image", response_model=ImageResponse)
 async def get_image(
     repository: Repository = Depends(get_repository),
-    booru_client: Union[DanbooruClient, GelbooruClient] = Depends(get_booru_client),
+    booru_client: BooruClient = Depends(get_booru_client),
     preference_learner: Optional[PreferenceLearner] = Depends(get_optional_preference_learner),
 ) -> ImageResponse:
     """Get the next image to display.
@@ -501,8 +504,8 @@ async def get_image(
             detail=f"Failed to fetch image from booru: {str(e)}",
         )
     
-    # Only proxy Gelbooru, direct-link Danbooru
-    booru_source = os.getenv("BOORU_SOURCE", "gelbooru").lower()
+    # Only proxy Gelbooru, direct-link Danbooru and e621
+    booru_source = get_booru_source()
     response = _build_image_response(image, booru_source, search_tags)
 
     _session.current_image = {
@@ -526,7 +529,7 @@ async def record_swipe(
     swipe_request: SwipeRequest,
     background_tasks: BackgroundTasks,
     repository: Repository = Depends(get_repository),
-    booru_client: Union[DanbooruClient, GelbooruClient] = Depends(get_booru_client),
+    booru_client: BooruClient = Depends(get_booru_client),
     preference_learner: Optional[PreferenceLearner] = Depends(get_optional_preference_learner),
 ) -> SwipeResponse:
     """Record a swipe and get the next image.
@@ -556,7 +559,7 @@ async def record_swipe(
     log_swipe(f"Received: direction={swipe_request.direction}, image_id={swipe_request.image_id}, tag_count={len(current['tags'])}")
     
     try:
-        booru_source = os.getenv("BOORU_SOURCE", "gelbooru").lower()
+        booru_source = get_booru_source()
         await repository.save_swipe(
             booru=booru_source,
             image_id=str(swipe_request.image_id),
@@ -602,7 +605,7 @@ async def record_swipe(
             try:
                 image, search_tags = await select_next_image(repository, booru_client, preference_learner, seen_ids, _session.swipe_count)
 
-                booru_source = os.getenv("BOORU_SOURCE", "gelbooru").lower()
+                booru_source = get_booru_source()
                 next_image = _build_image_response(image, booru_source, search_tags)
 
                 _session.current_image = {
@@ -619,7 +622,7 @@ async def record_swipe(
                 }
                 log_image(f"Next image selected: id={image.id}")
             except Exception as e:
-                booru_source = os.getenv("BOORU_SOURCE", "gelbooru").lower()
+                booru_source = get_booru_source()
                 log_error(f"Failed to fetch next image from {booru_source.title()}: {type(e).__name__}: {e}")
                 import traceback
                 log_error(f"Traceback: {traceback.format_exc()}")
