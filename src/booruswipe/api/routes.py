@@ -22,7 +22,7 @@ from booruswipe.booru_sources import get_booru_source, get_post_url, get_random_
 from booruswipe.db.repository import Repository
 from booruswipe.gelbooru.client import BooruClient
 from booruswipe.llm.preference_learner import PreferenceLearner
-from booruswipe.selection import pick_first_unseen
+from booruswipe.selection import pick_best_scored_unseen, pick_first_unseen
 
 logger = logging.getLogger(__name__)
 
@@ -356,23 +356,37 @@ async def select_next_image(
 
     image = None
     selected_search_tags: List[str] = []
+    cumulative_tag_scores: Dict[str, int] = {}
+    recent_tag_scores: Dict[str, int] = {}
 
     log_image("Selection started")
+
+    if swipe_count >= LLM_MIN_SWIPES:
+        tag_counts = await repository.get_tag_counts()
+        cumulative_tag_scores = {
+            tag: counts["liked_count"] - counts["disliked_count"]
+            for tag, counts in tag_counts.items()
+        }
+        recent_tag_scores = await repository.get_recent_tag_scores(limit=20)
 
     async def search_with_pagination(
         tags: List[str],
         limit: int = None,
         sort_by_score: bool = True,
+        rank_candidates: bool = True,
     ) -> Optional[Any]:
-        """Search with pagination, trying multiple pages until finding unseen images.
+        """Search with pagination, optionally ranking unseen candidates locally.
 
         Stops early when:
-        - An unseen image is found
+        - A ranked candidate is found for the current page
         - A page returns 0 images (no more results)
         - A page returns fewer than `limit` images (last page with data)
         """
         if limit is None:
             limit = BOORU_SEARCH_LIMIT
+
+        best_image = None
+        best_score = float("-inf")
 
         for page in range(BOORU_SEARCH_PAGES):
             if page > 0:
@@ -391,15 +405,29 @@ async def select_next_image(
                 log_image(f"Page {page}: Filtered out {len(images) - len(filtered)} already-seen images")
 
             if filtered:
-                # Results are already score-sorted, so the first unseen post is the best match.
-                return pick_first_unseen(images, seen_ids)
+                if not rank_candidates:
+                    return pick_first_unseen(images, seen_ids)
+
+                page_best = pick_best_scored_unseen(
+                    images,
+                    seen_ids,
+                    cumulative_tag_scores,
+                    recent_tag_scores,
+                )
+                if page_best is not None:
+                    log_image(
+                        f"Page {page}: best local score {page_best.score:.2f} for image {page_best.image.id}"
+                    )
+                    if page_best.score > best_score:
+                        best_image = page_best.image
+                        best_score = page_best.score
 
             # Stop if this was the last page (got fewer results than limit)
             if len(images) < limit:
                 log_image(f"Page {page}: Last page reached ({len(images)} < {limit}), stopping pagination")
                 break
 
-        return None
+        return best_image
 
     try:
         log_image(f"Loaded {len(seen_ids)} seen image IDs for filtering")
@@ -408,7 +436,7 @@ async def select_next_image(
         if swipe_count < LLM_MIN_SWIPES:
             log_image(f"Below LLM threshold ({swipe_count} < {LLM_MIN_SWIPES}) - selecting random seed image")
             random_tag = get_random_tag()
-            image = await search_with_pagination([random_tag], sort_by_score=False)
+            image = await search_with_pagination([random_tag], sort_by_score=False, rank_candidates=False)
             if image:
                 selected_search_tags = [random_tag]
 
@@ -453,7 +481,7 @@ async def select_next_image(
             await asyncio.sleep(0.5)
             log_image("Level 3 - Using random image (no tags available)")
             random_tag = get_random_tag()
-            image = await search_with_pagination([random_tag], sort_by_score=False)
+            image = await search_with_pagination([random_tag], sort_by_score=False, rank_candidates=False)
             if image:
                 selected_search_tags = [random_tag]
 
