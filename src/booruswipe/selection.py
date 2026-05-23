@@ -73,6 +73,33 @@ def compact_recent_tag_scores(
     return dict(scored_tags[:limit])
 
 
+def compact_recent_tag_scores_split(
+    recent_tag_scores: Mapping[str, float],
+    positive_limit: int,
+    negative_limit: int,
+    cumulative_liked_tags: Optional[set[str]] = None,
+) -> dict[str, float]:
+    """Keep the strongest recent positive and negative tags separately."""
+    if (positive_limit <= 0 and negative_limit <= 0) or not recent_tag_scores:
+        return {}
+
+    positive_tags = []
+    negative_tags = []
+    for tag, score in recent_tag_scores.items():
+        if score == 0:
+            continue
+        if cumulative_liked_tags and score > 0 and tag in cumulative_liked_tags:
+            continue
+        if score > 0:
+            positive_tags.append((tag, score))
+        else:
+            negative_tags.append((tag, score))
+
+    positive_tags.sort(key=lambda item: (-item[1], item[0]))
+    negative_tags.sort(key=lambda item: (item[1], item[0]))
+    return dict(positive_tags[:max(0, positive_limit)] + negative_tags[:max(0, negative_limit)])
+
+
 def is_animated_image(image: object) -> bool:
     """Return True when the candidate is clearly animated."""
     media_type = str(getattr(image, "media_type", "") or "").lower()

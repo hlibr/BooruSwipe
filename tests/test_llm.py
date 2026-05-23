@@ -134,7 +134,48 @@ def test_analyze_preferences_uses_rank_score_for_prompt_order(mock_llm_client):
 
 
 def test_analyze_preferences_orders_recent_tags_by_absolute_score(mock_llm_client, sample_tag_stats):
-    """Recent tags in the prompt should be ordered by absolute recent score."""
+    """Recent tags in absolute mode should be ordered by absolute recent score."""
+    expected_response = {
+        "choices": [
+            {
+                "message": {
+                    "content": json.dumps({
+                        "liked_tags": ["tag1"],
+                        "disliked_tags": ["tag4"],
+                        "preferences_summary": "Test summary",
+                        "recommended_search_tags": ["tag1", "tag4"],
+                    })
+                }
+            }
+        ]
+    }
+    mock_llm_client.chat_completion.return_value = expected_response
+
+    learner = PreferenceLearner(mock_llm_client)
+    asyncio.run(
+        learner.analyze_preferences(
+            sample_tag_stats,
+            tag_limit=2,
+            recent_tag_scores={
+                "small_positive": 2,
+                "big_negative": -9,
+                "mid_positive": 5,
+                "mid_negative": -4,
+            },
+            recent_tag_mode="absolute",
+        )
+    )
+
+    messages = mock_llm_client.chat_completion.await_args.args[0]
+    prompt = messages[1]["content"]
+
+    assert prompt.index("big_negative (-9)") < prompt.index("mid_positive (+5)")
+    assert prompt.index("mid_positive (+5)") < prompt.index("mid_negative (-4)")
+    assert prompt.index("mid_negative (-4)") < prompt.index("small_positive (+2)")
+
+
+def test_analyze_preferences_defaults_to_split_recent_mode(mock_llm_client, sample_tag_stats):
+    """Split mode should remain the default for recent tags."""
     expected_response = {
         "choices": [
             {
@@ -168,9 +209,9 @@ def test_analyze_preferences_orders_recent_tags_by_absolute_score(mock_llm_clien
     messages = mock_llm_client.chat_completion.await_args.args[0]
     prompt = messages[1]["content"]
 
-    assert prompt.index("big_negative (-9)") < prompt.index("mid_positive (+5)")
-    assert prompt.index("mid_positive (+5)") < prompt.index("mid_negative (-4)")
-    assert prompt.index("mid_negative (-4)") < prompt.index("small_positive (+2)")
+    assert prompt.index("mid_positive (+5)") < prompt.index("small_positive (+2)")
+    assert prompt.index("small_positive (+2)") < prompt.index("mid_negative (-4)")
+    assert prompt.index("mid_negative (-4)") < prompt.index("big_negative (-9)")
 
 
 def test_analyze_preferences_parses_markdown_and_think_tags(mock_llm_client, sample_tag_stats):

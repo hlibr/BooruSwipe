@@ -20,6 +20,7 @@ from booruswipe.api.deps import (
 )
 from booruswipe.booru_sources import (
     get_booru_source,
+    get_llm_recent_mode,
     get_post_url,
     get_random_search_tag,
     get_search_sort_mode,
@@ -30,6 +31,7 @@ from booruswipe.gelbooru.client import BooruClient
 from booruswipe.llm.preference_learner import PreferenceLearner
 from booruswipe.selection import (
     compact_recent_tag_scores,
+    compact_recent_tag_scores_split,
     decay_value,
     filter_non_animated,
     pick_best_scored_unseen,
@@ -202,9 +204,12 @@ async def run_llm_analysis(repository, preference_learner):
     llm_state["is_processing"] = True
     LLM_MAX_TAGS = int(os.getenv("LLM_MAX_TAGS", "30"))
     BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "5"))
+    LLM_RECENT_MODE = get_llm_recent_mode()
     LLM_RECENT = int(os.getenv("LLM_RECENT", "20"))
+    LLM_RECENT_POSITIVE = int(os.getenv("LLM_RECENT_POSITIVE", "10"))
+    LLM_RECENT_NEGATIVE = int(os.getenv("LLM_RECENT_NEGATIVE", "10"))
     TAG_DECAY_HALF_LIFE_SWIPES = float(os.getenv("TAG_DECAY_HALF_LIFE_SWIPES", "30"))
-    RECENT_SWIPES_WINDOW = int(os.getenv("RECENT_SWIPES_WINDOW", "5"))
+    RECENT_SWIPES_WINDOW = int(os.getenv("RECENT_SWIPES_WINDOW", "10"))
     
     async with repository.async_sessionmaker() as session:
         try:
@@ -261,23 +266,32 @@ async def run_llm_analysis(repository, preference_learner):
 
             recent_scores = await repository.get_recent_tag_scores(limit=RECENT_SWIPES_WINDOW)
 
-            # Compact to the strongest recent tags by absolute score.
             if recent_scores:
                 cumulative_liked_tags = None
                 if LLM_RECENT_FILTER_CUMULATIVE_LIKES:
                     cumulative_liked_tags = {
                         tag for tag, data in tag_freqs.items() if data["rank_score"] > 0
                     }
-                recent_scores = compact_recent_tag_scores(
-                    recent_scores,
-                    limit=LLM_RECENT,
-                    cumulative_liked_tags=cumulative_liked_tags,
-                )
+
+                if LLM_RECENT_MODE == "absolute":
+                    recent_scores = compact_recent_tag_scores(
+                        recent_scores,
+                        limit=LLM_RECENT,
+                        cumulative_liked_tags=cumulative_liked_tags,
+                    )
+                else:
+                    recent_scores = compact_recent_tag_scores_split(
+                        recent_scores,
+                        positive_limit=LLM_RECENT_POSITIVE,
+                        negative_limit=LLM_RECENT_NEGATIVE,
+                        cumulative_liked_tags=cumulative_liked_tags,
+                    )
 
             learned_profile = await preference_learner.analyze_preferences(
                 tag_freqs,
                 tag_limit=BOORU_TAGS_PER_SEARCH,
                 recent_tag_scores=recent_scores,
+                recent_tag_mode=LLM_RECENT_MODE,
             )
 
             db_profile = await repository.get_or_create_profile(session)
@@ -291,10 +305,16 @@ async def run_llm_analysis(repository, preference_learner):
                     for tag, data in list(tag_freqs.items())[:10]
                 )
             )
-            log_llm(
-                f"RECENT TAGS (top {LLM_RECENT}): "
-                f"{', '.join(f'{tag} ({score:+d})' for tag, score in list(recent_scores.items())[:LLM_RECENT]) if recent_scores else 'No recent data'}"
-            )
+            if LLM_RECENT_MODE == "absolute":
+                log_llm(
+                    f"RECENT TAGS (absolute top {LLM_RECENT}): "
+                    f"{', '.join(f'{tag} ({score:+d})' for tag, score in list(recent_scores.items())[:LLM_RECENT]) if recent_scores else 'No recent data'}"
+                )
+            else:
+                log_llm(
+                    f"RECENT TAGS (split top +{LLM_RECENT_POSITIVE}/-{LLM_RECENT_NEGATIVE}): "
+                    f"{', '.join(f'{tag} ({score:+d})' for tag, score in recent_scores.items()) if recent_scores else 'No recent data'}"
+                )
             log_llm(f"Analyzed preferences with tag frequencies: {tag_freqs}")
             if db_profile.preferences.get('liked_tags'):
                 log_llm(f"Response: liked_tags={db_profile.preferences.get('liked_tags', [])}")
@@ -399,7 +419,7 @@ async def select_next_image(
     BOORU_SEARCH_SORT_MODE = get_search_sort_mode()
     SKIP_ANIMATED_IMAGES = get_skip_animated_images()
     TAG_DECAY_HALF_LIFE_SWIPES = float(os.getenv("TAG_DECAY_HALF_LIFE_SWIPES", "30"))
-    RECENT_SWIPES_WINDOW = int(os.getenv("RECENT_SWIPES_WINDOW", "5"))
+    RECENT_SWIPES_WINDOW = int(os.getenv("RECENT_SWIPES_WINDOW", "10"))
     
     profile = await repository.get_or_create_profile()
     LLM_MIN_SWIPES = int(os.getenv("LLM_MIN_SWIPES", "5"))

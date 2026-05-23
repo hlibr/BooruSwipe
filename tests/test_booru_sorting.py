@@ -10,6 +10,7 @@ from booruswipe.gelbooru.client import DanbooruClient, E621Client, GelbooruClien
 from booruswipe.gelbooru.models import Image
 from booruswipe.selection import (
     compact_recent_tag_scores,
+    compact_recent_tag_scores_split,
     decay_value,
     filter_non_animated,
     pick_best_scored_unseen,
@@ -217,6 +218,28 @@ def test_compact_recent_tag_scores_uses_absolute_value_order():
     assert compacted["big_negative"] == -9
     assert compacted["mid_negative"] == -4
     assert compacted["small_positive"] == 2
+
+
+def test_compact_recent_tag_scores_split_keeps_positive_and_negative_caps():
+    """Split mode should keep positive and negative recent tags separately."""
+    compacted = compact_recent_tag_scores_split(
+        {
+            "small_positive": 2,
+            "big_negative": -9,
+            "mid_positive": 5,
+            "mid_negative": -4,
+            "zero": 0,
+            "tiny_positive": 1,
+        },
+        positive_limit=2,
+        negative_limit=1,
+        cumulative_liked_tags={"mid_positive"},
+    )
+
+    assert list(compacted.keys()) == ["small_positive", "tiny_positive", "big_negative"]
+    assert compacted["small_positive"] == 2
+    assert compacted["tiny_positive"] == 1
+    assert compacted["big_negative"] == -9
 
 
 def test_pick_best_scored_unseen_prefers_highest_scoring_candidate():

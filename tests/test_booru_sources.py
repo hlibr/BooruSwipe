@@ -1,6 +1,11 @@
 """Tests for booru source helpers."""
 
-from booruswipe.booru_sources import get_post_url, get_random_search_tag, get_skip_animated_images
+from booruswipe.booru_sources import (
+    get_llm_recent_mode,
+    get_post_url,
+    get_random_search_tag,
+    get_skip_animated_images,
+)
 
 
 def test_random_search_tags_match_source():
@@ -29,3 +34,17 @@ def test_skip_animated_images_can_be_disabled(monkeypatch):
     monkeypatch.setenv("SKIP_ANIMATED_IMAGES", "false")
 
     assert get_skip_animated_images() is False
+
+
+def test_llm_recent_mode_defaults_to_split(monkeypatch):
+    """Recent tag compaction should default to split mode."""
+    monkeypatch.delenv("LLM_RECENT_MODE", raising=False)
+
+    assert get_llm_recent_mode() == "split"
+
+
+def test_llm_recent_mode_can_be_absolute(monkeypatch):
+    """The recent compaction mode should remain configurable."""
+    monkeypatch.setenv("LLM_RECENT_MODE", "absolute")
+
+    assert get_llm_recent_mode() == "absolute"

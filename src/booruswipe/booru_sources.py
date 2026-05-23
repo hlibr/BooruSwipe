@@ -4,6 +4,7 @@ import os
 
 SUPPORTED_BOORU_SOURCES = {"gelbooru", "danbooru", "e621"}
 SUPPORTED_BOORU_SEARCH_SORT_MODES = {"score", "random"}
+SUPPORTED_LLM_RECENT_MODES = {"split", "absolute"}
 
 
 def get_booru_source() -> str:
@@ -35,6 +36,14 @@ def get_search_sort_mode() -> str:
     if sort_mode not in SUPPORTED_BOORU_SEARCH_SORT_MODES:
         raise ValueError(f"Unsupported BOORU_SEARCH_SORT_MODE: {sort_mode}")
     return sort_mode
+
+
+def get_llm_recent_mode() -> str:
+    """Return how recent LLM tags should be compacted."""
+    recent_mode = os.getenv("LLM_RECENT_MODE", "split").lower()
+    if recent_mode not in SUPPORTED_LLM_RECENT_MODES:
+        raise ValueError(f"Unsupported LLM_RECENT_MODE: {recent_mode}")
+    return recent_mode
 
 
 def get_skip_animated_images() -> bool:

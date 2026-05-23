@@ -89,6 +89,7 @@ class PreferenceLearner:
         tag_stats: dict[str, dict[str, Any]],
         tag_limit: int = 2,
         recent_tag_scores: Optional[dict[str, int]] = None,
+        recent_tag_mode: str = "split",
     ) -> PreferenceProfile:
         """Analyze tag frequency data to extract user preferences.
 
@@ -96,6 +97,7 @@ class PreferenceLearner:
             tag_stats: Dictionary of tag -> liked_count, disliked_count, net_count
             tag_limit: Number of tags to recommend (BOORU_TAGS_PER_SEARCH)
             recent_tag_scores: Dictionary of tag -> net_score from last N swipes (optional)
+            recent_tag_mode: How recent tags were compacted ("split" or "absolute")
 
         Returns:
             PreferenceProfile with extracted preferences
@@ -183,10 +185,20 @@ Top disliked: {disliked_tags_str if disliked_tags_str else "No tags available"}
 """
 
         if recent_tag_scores:
-            sorted_recent = sorted(
-                recent_tag_scores.items(),
-                key=lambda item: (-abs(item[1]), -item[1], item[0]),
-            )
+            if recent_tag_mode == "absolute":
+                sorted_recent = sorted(
+                    recent_tag_scores.items(),
+                    key=lambda item: (-abs(item[1]), -item[1], item[0]),
+                )
+            elif recent_tag_mode == "split":
+                sorted_recent = sorted(
+                    recent_tag_scores.items(),
+                    key=lambda item: item[1],
+                    reverse=True,
+                )
+            else:
+                raise ValueError(f"Unsupported recent_tag_mode: {recent_tag_mode}")
+
             recent_str = ", ".join(f"{tag} ({score:+d})" for tag, score in sorted_recent)
             prompt += f"""
 
