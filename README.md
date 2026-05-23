@@ -174,7 +174,7 @@ BOORU_SOURCE=gelbooru  # or: danbooru, e621
 | `api_key` | No | — | LLM provider API key |
 | `base_url` | No | `https://api.openai.com/v1` | LLM provider base URL |
 | `model` | No | — | Model name for chat completions |
-| `LLM_MIN_SWIPES` | No | `5` | Swipes required before LLM kicks in |
+| `LLM_MIN_SWIPES` | No | `8` | Swipes required before LLM kicks in |
 | `LLM_MAX_TAGS` | No | `30` | Max cumulative tags sent to the LLM |
 | `LLM_TAG_FILTER_MIN_COUNT` | No | `1` | Minimum tag score to include in LLM input |
 | `LLM_USE_STRUCTURED_OUTPUT` | No | `true` | Validate LLM output against response schema |
