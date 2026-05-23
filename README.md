@@ -191,7 +191,7 @@ BOORU_SOURCE=gelbooru  # or: danbooru, e621
 | `RANDOM_IMAGE_CHANCE` | No | `5` | % chance to show a random image instead of a recommendation |
 | `DOUBLE_LIKED_NEVER_IGNORE` | No | `false` | Exempt double-liked images from repeat filtering |
 | `BOORU_SEARCH_LIMIT` | No | `100` | Images requested per search page |
-| `BOORU_SEARCH_PAGES` | No | `3` | Pages to scan before giving up |
+| `BOORU_SEARCH_PAGES` | No | `1` | Pages to scan before giving up |
 
 ---
 
