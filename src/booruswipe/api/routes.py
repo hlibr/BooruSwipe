@@ -320,7 +320,7 @@ async def run_llm_analysis(repository, preference_learner):
 
 async def maybe_trigger_llm(repository, preference_learner):
     """Trigger LLM analysis based on dirty flag logic."""
-    LLM_MIN_SWIPES = int(os.getenv("LLM_MIN_SWIPES", "10"))
+    LLM_MIN_SWIPES = int(os.getenv("LLM_MIN_SWIPES", "5"))
     if _session.swipe_count < LLM_MIN_SWIPES:
         log_llm(f"Skipping LLM analysis: {_session.swipe_count} swipes < {LLM_MIN_SWIPES} threshold")
         return
@@ -402,7 +402,7 @@ async def select_next_image(
     RECENT_SWIPES_WINDOW = int(os.getenv("RECENT_SWIPES_WINDOW", "5"))
     
     profile = await repository.get_or_create_profile()
-    LLM_MIN_SWIPES = int(os.getenv("LLM_MIN_SWIPES", "10"))
+    LLM_MIN_SWIPES = int(os.getenv("LLM_MIN_SWIPES", "5"))
     booru_source = get_booru_source()
     booru_label = booru_source.title()
 

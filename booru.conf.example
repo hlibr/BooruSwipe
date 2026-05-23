@@ -22,7 +22,7 @@ e621_api_key=
 e621_user_id=
 
 # Advanced Settings (optional - defaults shown)
-# LLM_MIN_SWIPES=10
+# LLM_MIN_SWIPES=5
 # LLM_MAX_TAGS=30
 # LLM_TAG_FILTER_MIN_COUNT=1
 # LLM_USE_STRUCTURED_OUTPUT=true
