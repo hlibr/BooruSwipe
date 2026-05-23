@@ -208,7 +208,7 @@ async def run_llm_analysis(repository, preference_learner):
     LLM_RECENT = int(os.getenv("LLM_RECENT", "20"))
     LLM_RECENT_POSITIVE = int(os.getenv("LLM_RECENT_POSITIVE", "10"))
     LLM_RECENT_NEGATIVE = int(os.getenv("LLM_RECENT_NEGATIVE", "10"))
-    TAG_DECAY_HALF_LIFE_SWIPES = float(os.getenv("TAG_DECAY_HALF_LIFE_SWIPES", "30"))
+    TAG_DECAY_HALF_LIFE_SWIPES = float(os.getenv("TAG_DECAY_HALF_LIFE_SWIPES", "5"))
     RECENT_SWIPES_WINDOW = int(os.getenv("RECENT_SWIPES_WINDOW", "10"))
     
     async with repository.async_sessionmaker() as session:
@@ -418,7 +418,7 @@ async def select_next_image(
     BOORU_SEARCH_PAGES = int(os.getenv("BOORU_SEARCH_PAGES", "1"))
     BOORU_SEARCH_SORT_MODE = get_search_sort_mode()
     SKIP_ANIMATED_IMAGES = get_skip_animated_images()
-    TAG_DECAY_HALF_LIFE_SWIPES = float(os.getenv("TAG_DECAY_HALF_LIFE_SWIPES", "30"))
+    TAG_DECAY_HALF_LIFE_SWIPES = float(os.getenv("TAG_DECAY_HALF_LIFE_SWIPES", "5"))
     RECENT_SWIPES_WINDOW = int(os.getenv("RECENT_SWIPES_WINDOW", "10"))
     
     profile = await repository.get_or_create_profile()
