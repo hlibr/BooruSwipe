@@ -14,6 +14,4 @@ You are to respond in JSON format with this structure:
 Tags inside recommended_search_tags will be used to get the next user image.
 You may also use negative tags (e.g. "-tag4") to exclude certain things.
 Chose the set of tags that are most likely to match the user's preference.
-Avoid character or artist tags.
-Prioritize unique and interesting tags.
 """
