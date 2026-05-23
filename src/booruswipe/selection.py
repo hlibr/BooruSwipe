@@ -7,6 +7,19 @@ T = TypeVar("T")
 
 CUMULATIVE_TAG_WEIGHT = 1.0
 RECENT_TAG_WEIGHT = 1.5
+ANIMATED_TAGS = {
+    "animated",
+    "animated_gif",
+    "animated_png",
+    "looping_animation",
+    "ugoira",
+}
+ANIMATED_MEDIA_TYPES = {
+    "image/apng",
+    "image/gif",
+    "video/mp4",
+    "video/webm",
+}
 
 
 @dataclass(frozen=True)
@@ -58,6 +71,38 @@ def compact_recent_tag_scores(
 
     scored_tags.sort(key=lambda item: (-abs(item[1]), -item[1], item[0]))
     return dict(scored_tags[:limit])
+
+
+def is_animated_image(image: object) -> bool:
+    """Return True when the candidate is clearly animated."""
+    media_type = str(getattr(image, "media_type", "") or "").lower()
+    if media_type in ANIMATED_MEDIA_TYPES or media_type.startswith("video/"):
+        return True
+
+    url_candidates = [
+        getattr(image, "sample_url", ""),
+        getattr(image, "url", ""),
+    ]
+    for url in url_candidates:
+        lower_url = str(url or "").lower()
+        if lower_url.endswith((".gif", ".apng", ".mp4", ".webm")):
+            return True
+
+    tags = {str(tag).strip().lower() for tag in getattr(image, "tags", []) or [] if str(tag).strip()}
+    return any(tag in tags for tag in ANIMATED_TAGS)
+
+
+def pick_first_non_animated(images: Sequence[T]) -> Optional[T]:
+    """Return the first image that is not animated."""
+    for image in images:
+        if not is_animated_image(image):
+            return image
+    return None
+
+
+def filter_non_animated(images: Sequence[T]) -> list[T]:
+    """Return only non-animated images from a sequence."""
+    return [image for image in images if not is_animated_image(image)]
 
 
 def pick_first_unseen(images: Sequence[T], seen_ids: set[int]) -> Optional[T]:

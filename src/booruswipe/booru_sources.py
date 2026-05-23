@@ -37,6 +37,16 @@ def get_search_sort_mode() -> str:
     return sort_mode
 
 
+def get_skip_animated_images() -> bool:
+    """Return whether animated images should be filtered out."""
+    return os.getenv("SKIP_ANIMATED_IMAGES", "true").lower() == "true"
+
+
+def get_animated_exclusion_tag() -> str:
+    """Return the negated tag used to exclude animated posts."""
+    return "-animated" if get_skip_animated_images() else ""
+
+
 def get_search_sort_tag(source: str | None = None, sort_mode: str = "score") -> str:
     """Return the source-specific query tag for the configured sort mode."""
     normalized_sort_mode = sort_mode.lower()

@@ -11,7 +11,9 @@ from booruswipe.gelbooru.models import Image
 from booruswipe.selection import (
     compact_recent_tag_scores,
     decay_value,
+    filter_non_animated,
     pick_best_scored_unseen,
+    pick_first_non_animated,
     pick_first_unseen,
     score_image,
 )
@@ -62,8 +64,9 @@ def test_random_sort_tags_match_source():
     assert get_search_sort_tag("e621", "random") == "order:random"
 
 
-def test_clients_append_score_sort_tags():
+def test_clients_append_score_sort_tags(monkeypatch):
     """Search queries should include score sorting for non-random queries."""
+    monkeypatch.delenv("SKIP_ANIMATED_IMAGES", raising=False)
 
     async def scenario():
         danbooru_tags, _ = await _capture_search_tags(
@@ -93,15 +96,16 @@ def test_clients_append_score_sort_tags():
             sort_mode="score",
         )
 
-        assert danbooru_tags == "cat order:score"
-        assert gelbooru_tags == "cat sort:score"
-        assert e621_tags == "cat order:score"
+        assert danbooru_tags == "cat -animated order:score"
+        assert gelbooru_tags == "cat -animated sort:score"
+        assert e621_tags == "cat -animated order:score"
 
     asyncio.run(scenario())
 
 
-def test_clients_append_random_sort_tags():
+def test_clients_append_random_sort_tags(monkeypatch):
     """Search queries should include random sorting when requested."""
+    monkeypatch.delenv("SKIP_ANIMATED_IMAGES", raising=False)
 
     async def scenario():
         danbooru_tags, _ = await _capture_search_tags(
@@ -131,9 +135,9 @@ def test_clients_append_random_sort_tags():
             sort_mode="random",
         )
 
-        assert danbooru_tags == "cat random:1"
-        assert gelbooru_tags == "cat sort:random"
-        assert e621_tags == "cat order:random"
+        assert danbooru_tags == "cat -animated random:1"
+        assert gelbooru_tags == "cat -animated sort:random"
+        assert e621_tags == "cat -animated order:random"
 
     asyncio.run(scenario())
 
@@ -144,6 +148,17 @@ def test_pick_first_unseen_returns_first_unseen_image():
 
     assert pick_first_unseen(images, {1, 2}).id == 3
     assert pick_first_unseen(images, {1, 2, 3}) is None
+
+
+def test_pick_first_non_animated_skips_animated_images():
+    """Animated candidates should be skipped before ranking or selection."""
+    animated = _make_image(1)
+    animated.media_type = "image/gif"
+    animated.tags = ["animated"]
+    static = _make_image(2)
+
+    assert pick_first_non_animated([animated, static]).id == 2
+    assert [image.id for image in filter_non_animated([animated, static])] == [2]
 
 
 def test_score_image_uses_cumulative_and_recent_weights():

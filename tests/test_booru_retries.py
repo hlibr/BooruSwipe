@@ -165,3 +165,45 @@ def test_danbooru_get_post_retries(monkeypatch):
     assert image.url == "https://example.com/image.jpg"
     assert client._client.calls == 2
     assert sleep_calls == [0.1]
+
+
+def test_gelbooru_random_image_skips_animated_results(monkeypatch):
+    """Random selection should keep trying until it finds a non-animated image."""
+    monkeypatch.setenv("SKIP_ANIMATED_IMAGES", "true")
+
+    client = GelbooruClient()
+    client._client = FakeAsyncClient(
+        [
+            FakeResponse(
+                200,
+                payload={
+                    "post": [
+                        {
+                            "id": 1,
+                            "tag_string": "animated",
+                            "file_url": "https://example.com/1.gif",
+                            "file_ext": "gif",
+                        }
+                    ]
+                },
+            ),
+            FakeResponse(
+                200,
+                payload={
+                    "post": [
+                        {
+                            "id": 2,
+                            "tag_string": "cat",
+                            "file_url": "https://example.com/2.jpg",
+                            "file_ext": "jpg",
+                        }
+                    ]
+                },
+            ),
+        ]
+    )
+
+    image = asyncio.run(client.get_random_image())
+
+    assert image.id == 2
+    assert client._client.calls == 2

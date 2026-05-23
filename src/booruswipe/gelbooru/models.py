@@ -31,6 +31,10 @@ class Image:
             return "video/mp4"
         if normalized_ext == "webm":
             return "video/webm"
+        if normalized_ext == "gif":
+            return "image/gif"
+        if normalized_ext == "apng":
+            return "image/apng"
         return "image"
 
     @staticmethod

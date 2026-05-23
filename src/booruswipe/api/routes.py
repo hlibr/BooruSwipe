@@ -18,13 +18,20 @@ from booruswipe.api.deps import (
     get_optional_preference_learner,
     get_repository,
 )
-from booruswipe.booru_sources import get_booru_source, get_post_url, get_random_search_tag, get_search_sort_mode
+from booruswipe.booru_sources import (
+    get_booru_source,
+    get_post_url,
+    get_random_search_tag,
+    get_search_sort_mode,
+    get_skip_animated_images,
+)
 from booruswipe.db.repository import Repository
 from booruswipe.gelbooru.client import BooruClient
 from booruswipe.llm.preference_learner import PreferenceLearner
 from booruswipe.selection import (
     compact_recent_tag_scores,
     decay_value,
+    filter_non_animated,
     pick_best_scored_unseen,
     pick_first_unseen,
 )
@@ -335,6 +342,10 @@ def _build_image_response(image: Any, booru_source: str, search_tags: Optional[L
         display_media_type = "video/mp4"
     elif lower_display_url.endswith(".webm"):
         display_media_type = "video/webm"
+    elif lower_display_url.endswith(".gif"):
+        display_media_type = "image/gif"
+    elif lower_display_url.endswith(".apng"):
+        display_media_type = "image/apng"
     else:
         display_media_type = "image"
 
@@ -386,6 +397,7 @@ async def select_next_image(
     BOORU_SEARCH_LIMIT = int(os.getenv("BOORU_SEARCH_LIMIT", "100"))
     BOORU_SEARCH_PAGES = int(os.getenv("BOORU_SEARCH_PAGES", "1"))
     BOORU_SEARCH_SORT_MODE = get_search_sort_mode()
+    SKIP_ANIMATED_IMAGES = get_skip_animated_images()
     TAG_DECAY_HALF_LIFE_SWIPES = float(os.getenv("TAG_DECAY_HALF_LIFE_SWIPES", "30"))
     RECENT_SWIPES_WINDOW = int(os.getenv("RECENT_SWIPES_WINDOW", "5"))
     
@@ -444,13 +456,16 @@ async def select_next_image(
         best_score = float("-inf")
 
         for page in range(BOORU_SEARCH_PAGES):
-            images = await booru_client.search_images(tags, limit=limit, page=page, sort_mode=effective_sort_mode)
-            log_image(f"Page {page}: {booru_label} returned {len(images)} images")
+            raw_images = await booru_client.search_images(tags, limit=limit, page=page, sort_mode=effective_sort_mode)
+            log_image(f"Page {page}: {booru_label} returned {len(raw_images)} images")
 
-            # Stop if no more results from API
-            if len(images) == 0:
+            if len(raw_images) == 0:
                 log_image(f"Page {page}: No more results, stopping pagination")
                 break
+
+            images = filter_non_animated(raw_images) if SKIP_ANIMATED_IMAGES else raw_images
+            if SKIP_ANIMATED_IMAGES and len(images) < len(raw_images):
+                log_image(f"Page {page}: Filtered out {len(raw_images) - len(images)} animated images")
 
             filtered = [img for img in images if img.id not in seen_ids]
             if len(filtered) < len(images):
@@ -458,10 +473,10 @@ async def select_next_image(
 
             if filtered:
                 if not rank_candidates:
-                    return pick_first_unseen(images, seen_ids)
+                    return pick_first_unseen(filtered, seen_ids)
 
                 page_best = pick_best_scored_unseen(
-                    images,
+                    filtered,
                     seen_ids,
                     cumulative_tag_scores,
                     recent_tag_scores,
@@ -475,8 +490,8 @@ async def select_next_image(
                         best_score = page_best.score
 
             # Stop if this was the last page (got fewer results than limit)
-            if len(images) < limit:
-                log_image(f"Page {page}: Last page reached ({len(images)} < {limit}), stopping pagination")
+            if len(raw_images) < limit:
+                log_image(f"Page {page}: Last page reached ({len(raw_images)} < {limit}), stopping pagination")
                 break
 
         return best_image

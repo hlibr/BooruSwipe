@@ -9,8 +9,14 @@ from urllib.parse import urlencode
 
 import httpx
 
-from booruswipe.booru_sources import get_search_sort_mode, get_search_sort_tag
+from booruswipe.booru_sources import (
+    get_animated_exclusion_tag,
+    get_search_sort_mode,
+    get_search_sort_tag,
+    get_skip_animated_images,
+)
 from .models import Image
+from booruswipe.selection import pick_first_non_animated
 
 logger = logging.getLogger(__name__)
 
@@ -164,14 +170,28 @@ class DanbooruClient:
             Image: An Image object with url and tags.
         """
         log_image("Requesting random image from Danbooru")
-        data = await self._request(tags="random:1", limit="1")
-        
-        if not data:
-            raise ValueError("No images found")
-        
-        post = data[0] if isinstance(data, list) else data
-        
-        return Image.from_api(post)
+        skip_animated = get_skip_animated_images()
+        limit = "10" if skip_animated else "1"
+        attempts = 5 if skip_animated else 1
+
+        for attempt in range(attempts):
+            data = await self._request(tags="random:1", limit=limit)
+
+            if not data:
+                continue
+
+            posts = data if isinstance(data, list) else [data]
+            image = (
+                pick_first_non_animated(Image.from_api(post) for post in posts)
+                if skip_animated
+                else Image.from_api(posts[0])
+            )
+            if image is not None:
+                return image
+
+            log_image(f"Skipping animated random image from Danbooru (attempt {attempt + 1}/{attempts})")
+
+        raise ValueError("No non-animated images found")
     
     async def search_images(
         self,
@@ -196,6 +216,9 @@ class DanbooruClient:
 
         BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "5"))
         query_tags = tags[:BOORU_TAGS_PER_SEARCH]
+        animated_exclusion_tag = get_animated_exclusion_tag()
+        if animated_exclusion_tag:
+            query_tags = [*query_tags, animated_exclusion_tag]
         effective_sort_mode = (sort_mode or get_search_sort_mode()).lower()
         if effective_sort_mode not in {"score", "random", "none"}:
             raise ValueError(f"Unsupported search sort mode: {effective_sort_mode}")
@@ -321,16 +344,31 @@ class GelbooruClient:
             Image: An Image object with url and tags.
         """
         log_image("Requesting random image from Gelbooru")
-        data = await self._request(tags="sort:random", limit=1)
-        
-        posts = data.get("post", []) if isinstance(data, dict) else data
-        
-        if not posts:
-            raise ValueError("No images found")
-        
-        post = posts[0] if isinstance(posts, list) else posts
-        
-        return Image.from_api(post)
+        skip_animated = get_skip_animated_images()
+        limit = 10 if skip_animated else 1
+        attempts = 5 if skip_animated else 1
+
+        for attempt in range(attempts):
+            data = await self._request(tags="sort:random", limit=limit)
+
+            posts = data.get("post", []) if isinstance(data, dict) else data
+            if not posts:
+                continue
+
+            if not isinstance(posts, list):
+                posts = [posts]
+
+            image = (
+                pick_first_non_animated(Image.from_api(post) for post in posts)
+                if skip_animated
+                else Image.from_api(posts[0])
+            )
+            if image is not None:
+                return image
+
+            log_image(f"Skipping animated random image from Gelbooru (attempt {attempt + 1}/{attempts})")
+
+        raise ValueError("No non-animated images found")
     
     async def search_images(
         self,
@@ -355,6 +393,9 @@ class GelbooruClient:
 
         BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "5"))
         query_tags = tags[:BOORU_TAGS_PER_SEARCH]
+        animated_exclusion_tag = get_animated_exclusion_tag()
+        if animated_exclusion_tag:
+            query_tags = [*query_tags, animated_exclusion_tag]
         effective_sort_mode = (sort_mode or get_search_sort_mode()).lower()
         if effective_sort_mode not in {"score", "random", "none"}:
             raise ValueError(f"Unsupported search sort mode: {effective_sort_mode}")
@@ -472,15 +513,18 @@ class E621Client:
         log_image("Requesting random image from e621")
 
         last_error: Optional[Exception] = None
+        skip_animated = get_skip_animated_images()
+        limit = 10 if skip_animated else 1
         for random_tag in ("order:random", "random:1"):
             try:
-                images = await self.search_images([random_tag], limit=1, page=0, sort_mode="none")
+                images = await self.search_images([random_tag], limit=limit, page=0, sort_mode="none")
             except Exception as exc:
                 last_error = exc
                 continue
 
-            if images:
-                return images[0]
+            image = pick_first_non_animated(images) if skip_animated else (images[0] if images else None)
+            if image is not None:
+                return image
 
         if last_error is not None:
             raise last_error
@@ -499,6 +543,9 @@ class E621Client:
 
         BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "5"))
         query_tags = tags[:BOORU_TAGS_PER_SEARCH]
+        animated_exclusion_tag = get_animated_exclusion_tag()
+        if animated_exclusion_tag:
+            query_tags = [*query_tags, animated_exclusion_tag]
         effective_sort_mode = (sort_mode or get_search_sort_mode()).lower()
         if effective_sort_mode not in {"score", "random", "none"}:
             raise ValueError(f"Unsupported search sort mode: {effective_sort_mode}")
