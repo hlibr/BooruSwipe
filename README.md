@@ -186,7 +186,7 @@ BOORU_SOURCE=gelbooru  # or: danbooru, e621
 | `RECENT_SWIPES_WINDOW` | No | `10` | Number of most recent swipes used for recent-tag scoring |
 | `BOORU_TAGS_PER_SEARCH` | No | `5` | Max tags used in the primary search query |
 | `BOORU_TAGS_PER_SEARCH_FALLBACK` | No | `3` | Max tags used in the fallback search query |
-| `BOORU_SEARCH_SORT_MODE` | No | `random` | Sort mode for normal searches (`score` or `random`) |
+| `BOORU_SEARCH_SORT_MODE` | No | `score` | Sort mode for normal searches (`score` or `random`) |
 | `SKIP_ANIMATED_IMAGES` | No | `true` | Exclude animated posts by adding `-animated` to search queries and skipping animated results |
 | `BOORU_API_MAX_RETRIES` | No | `3` | Retries for booru API requests |
 | `BOORU_API_RETRY_BASE_DELAY` | No | `0.5` | Initial retry delay for booru API requests (seconds) |

@@ -4,6 +4,7 @@ from booruswipe.booru_sources import (
     get_llm_recent_mode,
     get_post_url,
     get_random_search_tag,
+    get_search_sort_mode,
     get_skip_animated_images,
 )
 
@@ -48,3 +49,10 @@ def test_llm_recent_mode_can_be_absolute(monkeypatch):
     monkeypatch.setenv("LLM_RECENT_MODE", "absolute")
 
     assert get_llm_recent_mode() == "absolute"
+
+
+def test_search_sort_mode_defaults_to_score(monkeypatch):
+    """Normal searches should default to score sorting."""
+    monkeypatch.delenv("BOORU_SEARCH_SORT_MODE", raising=False)
+
+    assert get_search_sort_mode() == "score"
