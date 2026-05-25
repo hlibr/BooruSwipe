@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/docker-lib.sh"
+
+ensure_backup_dir
+backup_file="$(mktemp "$BACKUP_DIR/booruswipe-db-$(timestamp)-XXXXXX.sqlite")"
+
+if ! backup_db_to "$backup_file"; then
+  rm -f "$backup_file"
+  echo "Failed to create a database backup before testing compatibility." >&2
+  exit 1
+fi
+
+compose up -d --build --force-recreate
+
+if wait_for_health 120; then
+  printf 'Compatibility check passed. Backup saved at %s\n' "$backup_file"
+else
+  echo "BooruSwipe did not become healthy after rebuild." >&2
+  echo "Recent logs:" >&2
+  compose logs --tail 200 booruswipe >&2 || true
+  echo "Backup saved at $backup_file" >&2
+  exit 1
+fi

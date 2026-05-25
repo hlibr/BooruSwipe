@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/docker-lib.sh"
+
+ensure_backup_dir
+backup_file="$(mktemp "$BACKUP_DIR/booruswipe-db-$(timestamp)-XXXXXX.sqlite")"
+
+if backup_db_to "$backup_file"; then
+  printf '%s\n' "$backup_file"
+else
+  rm -f "$backup_file"
+  echo "Failed to back up the SQLite database." >&2
+  exit 1
+fi
