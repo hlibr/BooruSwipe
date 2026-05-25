@@ -203,13 +203,13 @@ async def run_llm_analysis(repository, preference_learner):
     """
     llm_state["is_processing"] = True
     LLM_MAX_TAGS = int(os.getenv("LLM_MAX_TAGS", "30"))
-    BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "5"))
+    BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "8"))
     LLM_RECENT_MODE = get_llm_recent_mode()
     LLM_RECENT = int(os.getenv("LLM_RECENT", "20"))
-    LLM_RECENT_POSITIVE = int(os.getenv("LLM_RECENT_POSITIVE", "10"))
-    LLM_RECENT_NEGATIVE = int(os.getenv("LLM_RECENT_NEGATIVE", "10"))
-    TAG_DECAY_HALF_LIFE_SWIPES = float(os.getenv("TAG_DECAY_HALF_LIFE_SWIPES", "5"))
-    RECENT_SWIPES_WINDOW = int(os.getenv("RECENT_SWIPES_WINDOW", "10"))
+    LLM_RECENT_POSITIVE = int(os.getenv("LLM_RECENT_POSITIVE", "25"))
+    LLM_RECENT_NEGATIVE = int(os.getenv("LLM_RECENT_NEGATIVE", "25"))
+    TAG_DECAY_HALF_LIFE_SWIPES = float(os.getenv("TAG_DECAY_HALF_LIFE_SWIPES", "10"))
+    RECENT_SWIPES_WINDOW = int(os.getenv("RECENT_SWIPES_WINDOW", "15"))
     
     async with repository.async_sessionmaker() as session:
         try:
@@ -412,14 +412,14 @@ async def select_next_image(
     """
     import random
     
-    BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "5"))
-    BOORU_TAGS_PER_SEARCH_FALLBACK = int(os.getenv("BOORU_TAGS_PER_SEARCH_FALLBACK", "3"))
+    BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "8"))
+    BOORU_TAGS_PER_SEARCH_FALLBACK = int(os.getenv("BOORU_TAGS_PER_SEARCH_FALLBACK", "4"))
     BOORU_SEARCH_LIMIT = int(os.getenv("BOORU_SEARCH_LIMIT", "100"))
     BOORU_SEARCH_PAGES = int(os.getenv("BOORU_SEARCH_PAGES", "1"))
     BOORU_SEARCH_SORT_MODE = get_search_sort_mode()
     SKIP_ANIMATED_IMAGES = get_skip_animated_images()
-    TAG_DECAY_HALF_LIFE_SWIPES = float(os.getenv("TAG_DECAY_HALF_LIFE_SWIPES", "5"))
-    RECENT_SWIPES_WINDOW = int(os.getenv("RECENT_SWIPES_WINDOW", "10"))
+    TAG_DECAY_HALF_LIFE_SWIPES = float(os.getenv("TAG_DECAY_HALF_LIFE_SWIPES", "10"))
+    RECENT_SWIPES_WINDOW = int(os.getenv("RECENT_SWIPES_WINDOW", "15"))
     
     profile = await repository.get_or_create_profile()
     LLM_MIN_SWIPES = int(os.getenv("LLM_MIN_SWIPES", "8"))

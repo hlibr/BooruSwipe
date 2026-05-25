@@ -214,7 +214,7 @@ class DanbooruClient:
         if limit > 100:
             limit = 100
 
-        BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "5"))
+        BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "8"))
         query_tags = tags[:BOORU_TAGS_PER_SEARCH]
         animated_exclusion_tag = get_animated_exclusion_tag()
         if animated_exclusion_tag:
@@ -391,7 +391,7 @@ class GelbooruClient:
         if limit > 100:
             limit = 100
 
-        BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "5"))
+        BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "8"))
         query_tags = tags[:BOORU_TAGS_PER_SEARCH]
         animated_exclusion_tag = get_animated_exclusion_tag()
         if animated_exclusion_tag:
@@ -541,7 +541,7 @@ class E621Client:
         if limit > 320:
             limit = 320
 
-        BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "5"))
+        BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "8"))
         query_tags = tags[:BOORU_TAGS_PER_SEARCH]
         animated_exclusion_tag = get_animated_exclusion_tag()
         if animated_exclusion_tag:

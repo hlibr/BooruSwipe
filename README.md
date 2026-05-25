@@ -180,18 +180,18 @@ BOORU_SOURCE=gelbooru  # or: danbooru, e621
 | `LLM_USE_STRUCTURED_OUTPUT` | No | `true` | Validate LLM output against response schema |
 | `LLM_RECENT_MODE` | No | `split` | How recent LLM tags are compacted (`split` or `absolute`) |
 | `LLM_RECENT_FILTER_CUMULATIVE_LIKES` | No | `false` | Filter recent positive tags already in cumulative likes before sending to LLM |
-| `LLM_RECENT_POSITIVE` | No | `10` | Number of positive recent tags kept in split mode |
-| `LLM_RECENT_NEGATIVE` | No | `10` | Number of negative recent tags kept in split mode |
+| `LLM_RECENT_POSITIVE` | No | `25` | Number of positive recent tags kept in split mode |
+| `LLM_RECENT_NEGATIVE` | No | `25` | Number of negative recent tags kept in split mode |
 | `LLM_RECENT` | No | `20` | Number of recent tags kept in absolute mode |
-| `RECENT_SWIPES_WINDOW` | No | `10` | Number of most recent swipes used for recent-tag scoring |
-| `BOORU_TAGS_PER_SEARCH` | No | `5` | Max tags used in the primary search query |
-| `BOORU_TAGS_PER_SEARCH_FALLBACK` | No | `3` | Max tags used in the fallback search query |
+| `RECENT_SWIPES_WINDOW` | No | `15` | Number of most recent swipes used for recent-tag scoring |
+| `BOORU_TAGS_PER_SEARCH` | No | `8` | Max tags used in the primary search query |
+| `BOORU_TAGS_PER_SEARCH_FALLBACK` | No | `4` | Max tags used in the fallback search query |
 | `BOORU_SEARCH_SORT_MODE` | No | `score` | Sort mode for normal searches (`score` or `random`) |
 | `SKIP_ANIMATED_IMAGES` | No | `true` | Exclude animated posts by adding `-animated` to search queries and skipping animated results |
 | `BOORU_API_MAX_RETRIES` | No | `3` | Retries for booru API requests |
 | `BOORU_API_RETRY_BASE_DELAY` | No | `0.5` | Initial retry delay for booru API requests (seconds) |
 | `BOORU_API_RETRY_MAX_DELAY` | No | `8` | Maximum retry delay for booru API requests (seconds) |
-| `TAG_DECAY_HALF_LIFE_SWIPES` | No | `5` | Half-life in swipes for tag score decay used by ranking and LLM input |
+| `TAG_DECAY_HALF_LIFE_SWIPES` | No | `10` | Half-life in swipes for tag score decay used by ranking and LLM input |
 | `RANDOM_IMAGE_CHANCE` | No | `5` | % chance to show a random image instead of a recommendation |
 | `DOUBLE_LIKED_NEVER_IGNORE` | No | `false` | Exempt double-liked images from repeat filtering |
 | `BOORU_SEARCH_LIMIT` | No | `100` | Images requested per search page |
