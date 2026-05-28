@@ -210,6 +210,8 @@ RECENT SWIPES (likes/dislikes):
 Return JSON with:
 - preferences_summary: brief natural language summary
 - recommended_search_tags: EXACTLY {tag_limit} tags for the next image.
+
+You can only return {tag_limit} tags, so use them wisely!
 """
 
         log_llm(f"Prompt: {prompt}")
