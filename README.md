@@ -17,7 +17,7 @@ https://github.com/user-attachments/assets/3214239a-606b-4f72-a898-6bcedf7c2ff3
 
 ## How It Works
 
-1. The first batch of images is random (configurable, default: 10)
+1. The first few images use random seed searches until `LLM_MIN_SWIPES` is reached (default: 8)
 2. As you swipe, BooruSwipe builds a picture of your tag preferences
 3. After enough swipes, it asks an LLM to generate better search tags based on what you've liked and disliked
 4. Those tags drive the next round of image fetching
@@ -97,7 +97,7 @@ Then run:
 python -m booruswipe
 ```
 
-Open [http://localhost:8000](http://localhost:8000). Give it at least 10 swipes before expecting recommendations to kick in.
+Open [http://localhost:8000](http://localhost:8000). Give it at least 8 swipes before expecting recommendations to kick in.
 
 For verbose logs:
 
