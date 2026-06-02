@@ -150,6 +150,7 @@ The `scripts/` directory contains shortcuts for the most common Docker workflows
 - `./scripts/docker-reset-db` - wipe the database volume and start fresh
 - `./scripts/docker-backup-db` - copy the SQLite database into `backups/docker/`
 - `./scripts/docker-restore-db [backup-file]` - restore a backup, or the latest one if no file is given
+- `./scripts/docker-swap-db [backup-file]` - swap the live database with a backup, or the latest one if no file is given
 - `./scripts/docker-logs` - follow the container logs
 - `./scripts/docker-shell` - open a shell inside the container, or a one-off shell if it is stopped
 - `./scripts/docker-test-compat` - back up the DB, rebuild the image, and wait for `/health`

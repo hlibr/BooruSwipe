@@ -38,10 +38,33 @@ backup_db_to() {
 
 restore_db_from() {
   local source="$1"
+  local staged_db="$CONTAINER_DB_PATH.restore.$$"
 
   compose down
-  compose run --rm --no-deps -T booruswipe sh -lc "cat > '$CONTAINER_DB_PATH'" < "$source"
+  compose run --rm --no-deps -T booruswipe sh -lc "cat > '$staged_db' && mv '$staged_db' '$CONTAINER_DB_PATH'" < "$source"
   compose up -d
+}
+
+swap_db_with() {
+  local source="$1"
+  local live_backup
+
+  live_backup="$(mktemp "$BACKUP_DIR/booruswipe-db-live-$(timestamp)-XXXXXX.sqlite")"
+
+  if ! backup_db_to "$live_backup"; then
+    rm -f "$live_backup"
+    return 1
+  fi
+
+  if ! restore_db_from "$source"; then
+    rm -f "$live_backup"
+    return 1
+  fi
+
+  if ! mv "$live_backup" "$source"; then
+    rm -f "$live_backup"
+    return 1
+  fi
 }
 
 wait_for_health() {

@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/docker-lib.sh"
+
+if (($# > 1)); then
+  echo "Usage: $(basename "$0") [backup-file]" >&2
+  exit 1
+fi
+
+if (($# == 1)); then
+  backup_file="$1"
+else
+  backup_file="$(latest_backup)" || {
+    echo "No backup files found in $BACKUP_DIR." >&2
+    exit 1
+  }
+fi
+
+if [[ ! -f "$backup_file" ]]; then
+  echo "Backup file not found: $backup_file" >&2
+  exit 1
+fi
+
+if swap_db_with "$backup_file"; then
+  printf 'Swapped live database with %s\n' "$backup_file"
+else
+  echo "Failed to swap the SQLite database with $backup_file." >&2
+  exit 1
+fi
