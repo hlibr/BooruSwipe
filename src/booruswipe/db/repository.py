@@ -5,10 +5,11 @@ from pathlib import Path
 from typing import List, Optional
 
 from sqlalchemy import select, text
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from .database import Base
-from .models import PreferenceProfile, Swipe, TagCount, SwipedImage, DoubleLikedImage
+from .models import AppSettings, PreferenceProfile, Swipe, TagCount, SwipedImage, DoubleLikedImage
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +67,81 @@ class Repository:
                     {"current_swipe_count": current_swipe_count},
                 )
         log_startup("Database initialized successfully")
+
+    async def _get_or_create_app_settings_inner(self, session: AsyncSession) -> AppSettings:
+        try:
+            await session.execute(
+                sqlite_insert(AppSettings).values(id=1).prefix_with("OR IGNORE")
+            )
+            await session.commit()
+
+            stmt = select(AppSettings).where(AppSettings.id == 1).limit(1)
+            result = await session.execute(stmt)
+            settings = result.scalar_one_or_none()
+            if settings is None:
+                settings = AppSettings(id=1)
+                session.add(settings)
+                await session.commit()
+                await session.refresh(settings)
+            return settings
+        except Exception:
+            await session.rollback()
+            raise
+
+    async def get_or_create_app_settings(self, session: Optional[AsyncSession] = None) -> AppSettings:
+        if session is not None:
+            return await self._get_or_create_app_settings_inner(session)
+        async with self.async_sessionmaker() as session:
+            return await self._get_or_create_app_settings_inner(session)
+
+    async def seed_app_settings(self, values: dict[str, str]) -> AppSettings:
+        async with self.async_sessionmaker() as session:
+            try:
+                settings = await self._get_or_create_app_settings_inner(session)
+                changed = False
+                for key, value in values.items():
+                    if not hasattr(settings, key):
+                        continue
+                    if value and not getattr(settings, key):
+                        setattr(settings, key, value)
+                        changed = True
+                if changed:
+                    await session.commit()
+                    await session.refresh(settings)
+                return settings
+            except Exception:
+                await session.rollback()
+                raise
+
+    async def update_app_settings(
+        self,
+        values: dict[str, str],
+        session: Optional[AsyncSession] = None,
+    ) -> AppSettings:
+        if session is not None:
+            return await self._update_app_settings_inner(session, values)
+        async with self.async_sessionmaker() as session:
+            return await self._update_app_settings_inner(session, values)
+
+    async def _update_app_settings_inner(self, session: AsyncSession, values: dict[str, str]) -> AppSettings:
+        try:
+            settings = await self._get_or_create_app_settings_inner(session)
+            changed = False
+            for key, value in values.items():
+                if not hasattr(settings, key):
+                    continue
+                if value is None:
+                    continue
+                if getattr(settings, key) != value:
+                    setattr(settings, key, value)
+                    changed = True
+            if changed:
+                await session.commit()
+                await session.refresh(settings)
+            return settings
+        except Exception:
+            await session.rollback()
+            raise
 
     async def save_swipe(
         self,

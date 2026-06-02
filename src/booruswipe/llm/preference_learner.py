@@ -90,6 +90,8 @@ class PreferenceLearner:
         tag_limit: int = 2,
         recent_tag_scores: Optional[dict[str, int]] = None,
         recent_tag_mode: str = "split",
+        always_include_tags: Optional[list[str]] = None,
+        always_include_negative_tags: Optional[list[str]] = None,
     ) -> PreferenceProfile:
         """Analyze tag frequency data to extract user preferences.
 
@@ -98,6 +100,8 @@ class PreferenceLearner:
             tag_limit: Number of tags to recommend (BOORU_TAGS_PER_SEARCH)
             recent_tag_scores: Dictionary of tag -> net_score from last N swipes (optional)
             recent_tag_mode: How recent tags were compacted ("split" or "absolute")
+            always_include_tags: Fixed positive search tags that are always appended
+            always_include_negative_tags: Fixed negative search tags that are always appended
 
         Returns:
             PreferenceProfile with extracted preferences
@@ -165,6 +169,10 @@ class PreferenceLearner:
             for tag, data in sorted_disliked[:20]
             if data["disliked_count"] > 0
         )
+        always_include_tags = always_include_tags or []
+        always_include_negative_tags = always_include_negative_tags or []
+        always_include_tags_str = ", ".join(always_include_tags)
+        always_include_negative_tags_str = ", ".join(f"-{tag}" for tag in always_include_negative_tags)
 
         log_llm(f"LLM Input: {total_tags} total unique tags")
         log_llm(
@@ -204,6 +212,14 @@ Top disliked: {disliked_tags_str if disliked_tags_str else "No tags available"}
 
 RECENT SWIPES (likes/dislikes):
 {recent_str if recent_str else "No recent data"}
+"""
+
+        if always_include_tags or always_include_negative_tags:
+            prompt += f"""
+
+USER SELECTED SEARCH TAGS (these were specifically selected by the user and will be automatically added to the query, make sure that the tags you select match these):
+POSITIVE: {always_include_tags_str if always_include_tags_str else "None"}
+NEGATIVE: {always_include_negative_tags_str if always_include_negative_tags_str else "None"}
 """
 
         prompt += f"""

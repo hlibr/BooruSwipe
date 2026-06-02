@@ -102,3 +102,57 @@ def test_repository_get_or_create_profile_is_idempotent(tmp_path: Path):
             await repo.close()
 
     asyncio.run(scenario())
+
+
+def test_repository_persists_app_settings(tmp_path: Path):
+    """App settings should round-trip through the dedicated settings table."""
+    async def scenario():
+        db_path = tmp_path / "test_settings.db"
+        repo = Repository(str(db_path))
+        await repo.init_db()
+
+        try:
+            await repo.update_app_settings(
+                {
+                    "always_include_tags": "cat, blue_eyes",
+                    "always_include_negative_tags": "blurry, lowres",
+                }
+            )
+
+            settings = await repo.get_or_create_app_settings()
+            assert settings.always_include_tags == "cat, blue_eyes"
+            assert settings.always_include_negative_tags == "blurry, lowres"
+        finally:
+            await repo.close()
+
+    asyncio.run(scenario())
+
+
+def test_repository_seeds_app_settings_without_overwriting_existing_values(tmp_path: Path):
+    """Seed values should only fill blank database settings."""
+    async def scenario():
+        db_path = tmp_path / "test_settings_seed.db"
+        repo = Repository(str(db_path))
+        await repo.init_db()
+
+        try:
+            await repo.update_app_settings(
+                {
+                    "always_include_tags": "existing-tag",
+                }
+            )
+
+            await repo.seed_app_settings(
+                {
+                    "always_include_tags": "legacy-tag",
+                    "always_include_negative_tags": "legacy-negative",
+                }
+            )
+
+            settings = await repo.get_or_create_app_settings()
+            assert settings.always_include_tags == "existing-tag"
+            assert settings.always_include_negative_tags == "legacy-negative"
+        finally:
+            await repo.close()
+
+    asyncio.run(scenario())

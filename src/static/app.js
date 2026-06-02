@@ -1,5 +1,5 @@
 class SwipeCard {
-    constructor() {
+    constructor(settingsManager = null) {
         this.card = document.getElementById('card');
         this.image = document.getElementById('card-image');
         this.video = document.getElementById('card-video');
@@ -12,6 +12,7 @@ class SwipeCard {
         this.dislikesCount = document.getElementById('dislikes-count');
         this.postLink = document.getElementById('post-link');
         this.currentTagsField = document.getElementById('current-tags');
+        this.settingsManager = settingsManager;
 
         this.currentImage = null;
         this.stats = { likes: 0, dislikes: 0 };
@@ -674,6 +675,7 @@ class SwipeCard {
                     image_id: this.currentImage.id,
                     direction: liked ? 'right' : 'left',
                     weight: weight,
+                    settings: this.settingsManager ? this.settingsManager.collectSettings() : null,
                 }),
             });
             
@@ -742,9 +744,10 @@ class SwipeCard {
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    new SwipeCard();
-    new SettingsManager();
+document.addEventListener('DOMContentLoaded', async () => {
+    const settingsManager = new SettingsManager();
+    await settingsManager.ready;
+    new SwipeCard(settingsManager);
 });
 
 class SettingsManager {
@@ -759,93 +762,112 @@ class SettingsManager {
         this.apiKeyInput = document.getElementById('api-key');
         this.baseUrlInput = document.getElementById('base-url');
         this.modelInput = document.getElementById('model');
-        
-        this.init();
+        this.alwaysIncludeTagsInput = document.getElementById('always-include-tags');
+        this.alwaysIncludeNegativeTagsInput = document.getElementById('always-include-negative-tags');
+        this.ready = this.init();
     }
     
     async init() {
-        this.settingsBtn.addEventListener('click', () => this.openModal());
-        this.settingsClose.addEventListener('click', () => this.closeModal());
-        this.settingsModal.addEventListener('click', (e) => {
-            if (e.target === this.settingsModal) {
-                this.closeModal();
-            }
-        });
+        if (this.settingsBtn) {
+            this.settingsBtn.addEventListener('click', () => this.openModal());
+        }
+        if (this.settingsClose) {
+            this.settingsClose.addEventListener('click', () => this.closeModal());
+        }
+        if (this.settingsModal) {
+            this.settingsModal.addEventListener('click', (e) => {
+                if (e.target === this.settingsModal) {
+                    this.closeModal();
+                }
+            });
+        }
         
-        this.testBtn.addEventListener('click', () => this.testConnection());
-        this.settingsForm.addEventListener('submit', (e) => this.saveSettings(e));
+        if (this.testBtn) {
+            this.testBtn.addEventListener('click', () => this.testConnection());
+        }
+        [this.alwaysIncludeTagsInput, this.alwaysIncludeNegativeTagsInput].forEach((input) => {
+            if (!input) {
+                return;
+            }
+
+            this.resizeTextarea(input);
+            input.addEventListener('input', () => this.resizeTextarea(input));
+        });
         
         await this.loadSettings();
     }
     
     openModal() {
-        this.settingsModal.classList.add('active');
+        if (this.settingsModal) {
+            this.settingsModal.classList.add('active');
+        }
     }
     
     closeModal() {
-        this.settingsModal.classList.remove('active');
-        this.testResult.className = 'test-result';
-        this.testResult.style.display = 'none';
+        if (this.settingsModal) {
+            this.settingsModal.classList.remove('active');
+        }
+        if (this.testResult) {
+            this.testResult.className = 'test-result';
+            this.testResult.style.display = 'none';
+        }
     }
-    
+
+    resizeTextarea(textarea) {
+        if (!textarea) {
+            return;
+        }
+
+        textarea.style.height = 'auto';
+        textarea.style.height = `${textarea.scrollHeight}px`;
+    }
+
+    collectSettings() {
+        return {
+            always_include_tags: this.alwaysIncludeTagsInput ? this.alwaysIncludeTagsInput.value : '',
+            always_include_negative_tags: this.alwaysIncludeNegativeTagsInput ? this.alwaysIncludeNegativeTagsInput.value : '',
+        };
+    }
+
     async loadSettings() {
         try {
             const response = await fetch('/api/settings');
             const data = await response.json();
             
-            if (data.api_key) {
+            if (this.apiKeyInput && data.api_key !== undefined) {
                 this.apiKeyInput.value = data.api_key;
             }
-            if (data.base_url) {
+            if (this.baseUrlInput && data.base_url !== undefined) {
                 this.baseUrlInput.value = data.base_url;
             }
-            if (data.model) {
+            if (this.modelInput && data.model !== undefined) {
                 this.modelInput.value = data.model;
+            }
+            if (this.alwaysIncludeTagsInput && data.always_include_tags !== undefined) {
+                this.alwaysIncludeTagsInput.value = data.always_include_tags || '';
+                this.resizeTextarea(this.alwaysIncludeTagsInput);
+            }
+            if (this.alwaysIncludeNegativeTagsInput && data.always_include_negative_tags !== undefined) {
+                this.alwaysIncludeNegativeTagsInput.value = data.always_include_negative_tags || '';
+                this.resizeTextarea(this.alwaysIncludeNegativeTagsInput);
             }
         } catch (error) {
             console.error('Failed to load settings:', error);
         }
     }
     
-    async saveSettings(e) {
-        e.preventDefault();
-        
-        const settings = {
-            api_key: this.apiKeyInput.value,
-            base_url: this.baseUrlInput.value,
-            model: this.modelInput.value,
-        };
-        
-        try {
-            const response = await fetch('/api/settings', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(settings),
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                alert('Settings saved successfully!');
-                this.closeModal();
-            } else {
-                alert('Failed to save settings: ' + (data.error || 'Unknown error'));
-            }
-        } catch (error) {
-            alert('Failed to save settings: ' + error.message);
-        }
-    }
-    
     async testConnection() {
         const settings = {
-            api_key: this.apiKeyInput.value,
-            base_url: this.baseUrlInput.value,
-            model: this.modelInput.value,
+            api_key: this.apiKeyInput ? this.apiKeyInput.value : '',
+            base_url: this.baseUrlInput ? this.baseUrlInput.value : '',
+            model: this.modelInput ? this.modelInput.value : '',
             prompt: 'Say hello',
         };
         
+        if (!this.testResult || !this.testBtn) {
+            return;
+        }
+
         this.testResult.className = 'test-result';
         this.testResult.style.display = 'block';
         this.testResult.textContent = 'Testing connection...';

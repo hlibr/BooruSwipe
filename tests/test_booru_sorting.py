@@ -143,6 +143,54 @@ def test_clients_append_random_sort_tags(monkeypatch):
     asyncio.run(scenario())
 
 
+@pytest.mark.parametrize(
+    ("client_factory", "response", "expected_query"),
+    [
+        (
+            DanbooruClient,
+            [{"id": 1, "tag_string": "cat", "file_url": "https://example.com/1.jpg", "file_ext": "jpg"}],
+            "fixed_one fixed_two one two -avoid_one -animated order:score",
+        ),
+        (
+            GelbooruClient,
+            {"post": [{"id": 1, "tag_string": "cat", "file_url": "https://example.com/1.jpg", "file_ext": "jpg"}]},
+            "fixed_one fixed_two one two -avoid_one -animated sort:score",
+        ),
+        (
+            E621Client,
+            {
+                "posts": [
+                    {
+                        "id": 1,
+                        "tags": {"general": ["cat"]},
+                        "file": {"url": "https://example.com/1.jpg", "ext": "jpg"},
+                    }
+                ]
+            },
+            "fixed_one fixed_two one two -avoid_one -animated order:score",
+        ),
+    ],
+)
+def test_clients_keep_fixed_tags_outside_search_limit(monkeypatch, client_factory, response, expected_query):
+    """Fixed tags should not consume the BOORU_TAGS_PER_SEARCH budget."""
+    monkeypatch.setenv("BOORU_TAGS_PER_SEARCH", "2")
+    monkeypatch.delenv("SKIP_ANIMATED_IMAGES", raising=False)
+
+    async def scenario():
+        query_tags, _ = await _capture_search_tags(
+            client_factory(),
+            ["one", "two", "three"],
+            response,
+            sort_mode="score",
+            always_include_tags=["fixed_one", "fixed_two"],
+            always_include_negative_tags=["avoid_one"],
+        )
+
+        assert query_tags == expected_query
+
+    asyncio.run(scenario())
+
+
 def test_pick_first_unseen_returns_first_unseen_image():
     """The selection helper should preserve the ordering from the search results."""
     images = [_make_image(1), _make_image(2), _make_image(3)]

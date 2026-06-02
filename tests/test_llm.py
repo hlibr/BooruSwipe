@@ -8,6 +8,7 @@ import pytest
 
 from booruswipe.llm.client import LLMClient
 from booruswipe.llm.preference_learner import PreferenceLearner, PreferenceProfile
+from booruswipe.tag_utils import parse_tag_field
 
 
 @pytest.fixture
@@ -212,6 +213,48 @@ def test_analyze_preferences_defaults_to_split_recent_mode(mock_llm_client, samp
     assert prompt.index("mid_positive (+5)") < prompt.index("small_positive (+2)")
     assert prompt.index("small_positive (+2)") < prompt.index("mid_negative (-4)")
     assert prompt.index("mid_negative (-4)") < prompt.index("big_negative (-9)")
+
+
+def test_analyze_preferences_includes_fixed_search_tags_in_prompt(mock_llm_client, sample_tag_stats):
+    """The fixed search tags should be visible to the LLM in the user prompt."""
+    expected_response = {
+        "choices": [
+            {
+                "message": {
+                    "content": json.dumps({
+                        "liked_tags": ["tag1"],
+                        "disliked_tags": ["tag4"],
+                        "preferences_summary": "Test summary",
+                        "recommended_search_tags": ["tag1", "tag4"],
+                    })
+                }
+            }
+        ]
+    }
+    mock_llm_client.chat_completion.return_value = expected_response
+
+    learner = PreferenceLearner(mock_llm_client)
+    asyncio.run(
+        learner.analyze_preferences(
+            sample_tag_stats,
+            tag_limit=2,
+            always_include_tags=["night", "city"],
+            always_include_negative_tags=["blurry", "lowres"],
+        )
+    )
+
+    messages = mock_llm_client.chat_completion.await_args.args[0]
+    prompt = messages[1]["content"]
+
+    assert "FIXED SEARCH TAGS" in prompt
+    assert "Always include: night, city" in prompt
+    assert "Always include as negative: -blurry, -lowres" in prompt
+
+
+def test_parse_tag_field_accepts_commas_and_spaces():
+    """Tag fields should accept comma or comma-space separated values."""
+    assert parse_tag_field("cat, blue_eyes,  furry") == ["cat", "blue_eyes", "furry"]
+    assert parse_tag_field(" cat ,, -lowres , blurry ") == ["cat", "lowres", "blurry"]
 
 
 def test_analyze_preferences_parses_markdown_and_think_tags(mock_llm_client, sample_tag_stats):

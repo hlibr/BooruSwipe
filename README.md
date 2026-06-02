@@ -222,6 +222,7 @@ BooruSwipe stores everything locally in a SQLite database:
 - **`swiped_images`** — seen image IDs to reduce repeats
 - **`double_liked_images`** — IDs exempted from repeat filtering
 - **`preference_profiles`** — latest LLM-generated tag recommendations
+- **`app_settings`** — persisted `always_include_tags` / `always_include_negative_tags` values
 
 ---
 

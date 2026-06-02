@@ -8,52 +8,78 @@
 </head>
 <body>
     <div class="container">
-        <div class="card-container">
-            <div class="card" id="card">
-                <div class="image-wrapper">
-                    <img id="card-image" src="" alt="Swipeable image">
-                    <video id="card-video" playsinline muted loop></video>
-                    <div class="card-loading" id="card-loading">
-                        <div class="spinner"></div>
+        <div class="swipe-layout">
+            <div class="swipe-stack">
+                <div class="card-container">
+                    <div class="card" id="card">
+                        <div class="image-wrapper">
+                            <img id="card-image" src="" alt="Swipeable image">
+                            <video id="card-video" playsinline muted loop></video>
+                            <div class="card-loading" id="card-loading">
+                                <div class="spinner"></div>
+                            </div>
+                        </div>
+                        <div class="overlay" id="overlay"></div>
+                        <div class="indicator like-indicator" id="like-indicator">LIKE</div>
+                        <div class="indicator dislike-indicator" id="dislike-indicator">NOPE</div>
+                    </div>
+                    <div class="loading" id="loading"></div>
+                </div>
+                <textarea
+                    id="current-tags"
+                    class="current-tags"
+                    readonly
+                    spellcheck="false"
+                    aria-label="Current recommendation"
+                ></textarea>
+                <div class="controls">
+                    <div class="control-menu" data-liked="false">
+                        <button class="control-btn dislike-x2-btn menu-trigger" id="dislike-x2-btn" type="button">✕ x2</button>
+                        <div class="menu-hit-area" aria-hidden="true"></div>
+                        <button class="menu-option" type="button" data-weight="3" aria-label="Dislike x3">x3</button>
+                        <button class="menu-option" type="button" data-weight="4" aria-label="Dislike x4">x4</button>
+                        <button class="menu-option" type="button" data-weight="5" aria-label="Dislike x5">x5</button>
+                    </div>
+                    <button class="control-btn dislike-btn" id="dislike-btn">✕</button>
+                    <button class="control-btn like-btn" id="like-btn">✓</button>
+                    <div class="control-menu" data-liked="true">
+                        <button class="control-btn like-x2-btn menu-trigger" id="like-x2-btn" type="button">✓ x2</button>
+                        <div class="menu-hit-area" aria-hidden="true"></div>
+                        <button class="menu-option" type="button" data-weight="3" aria-label="Like x3">x3</button>
+                        <button class="menu-option" type="button" data-weight="4" aria-label="Like x4">x4</button>
+                        <button class="menu-option" type="button" data-weight="5" aria-label="Like x5">x5</button>
                     </div>
                 </div>
-                <div class="overlay" id="overlay"></div>
-                <div class="indicator like-indicator" id="like-indicator">LIKE</div>
-                <div class="indicator dislike-indicator" id="dislike-indicator">NOPE</div>
+                <div class="post-link-container">
+                    <a id="post-link" href="#" target="_blank" rel="noopener noreferrer">View Post</a>
+                </div>
+                <div class="stats" id="stats">
+                    <span>Likes: <strong id="likes-count">0</strong></span>
+                    <span>Dislikes: <strong id="dislikes-count">0</strong></span>
+                </div>
             </div>
-            <div class="loading" id="loading"></div>
-        </div>
-        <textarea
-            id="current-tags"
-            class="current-tags"
-            readonly
-            spellcheck="false"
-            aria-label="Current recommendation"
-        ></textarea>
-        <div class="controls">
-            <div class="control-menu" data-liked="false">
-                <button class="control-btn dislike-x2-btn menu-trigger" id="dislike-x2-btn" type="button">✕ x2</button>
-                <div class="menu-hit-area" aria-hidden="true"></div>
-                <button class="menu-option" type="button" data-weight="3" aria-label="Dislike x3">x3</button>
-                <button class="menu-option" type="button" data-weight="4" aria-label="Dislike x4">x4</button>
-                <button class="menu-option" type="button" data-weight="5" aria-label="Dislike x5">x5</button>
-            </div>
-            <button class="control-btn dislike-btn" id="dislike-btn">✕</button>
-            <button class="control-btn like-btn" id="like-btn">✓</button>
-            <div class="control-menu" data-liked="true">
-                <button class="control-btn like-x2-btn menu-trigger" id="like-x2-btn" type="button">✓ x2</button>
-                <div class="menu-hit-area" aria-hidden="true"></div>
-                <button class="menu-option" type="button" data-weight="3" aria-label="Like x3">x3</button>
-                <button class="menu-option" type="button" data-weight="4" aria-label="Like x4">x4</button>
-                <button class="menu-option" type="button" data-weight="5" aria-label="Like x5">x5</button>
-            </div>
-        </div>
-        <div class="post-link-container">
-            <a id="post-link" href="#" target="_blank" rel="noopener noreferrer">View Post</a>
-        </div>
-        <div class="stats" id="stats">
-            <span>Likes: <strong id="likes-count">0</strong></span>
-            <span>Dislikes: <strong id="dislikes-count">0</strong></span>
+            <aside class="tag-sidebar" aria-label="Always included tags">
+                <div class="tag-field-group">
+                    <label for="always-include-tags">Always Include Tags</label>
+                    <textarea
+                        id="always-include-tags"
+                        class="current-tags tag-input"
+                        spellcheck="false"
+                        aria-label="Always Include Tags"
+                        placeholder="cat, blue_eyes"
+                    ></textarea>
+                </div>
+                <div class="tag-field-group">
+                    <label for="always-include-negative-tags">Always Include As Negative</label>
+                    <textarea
+                        id="always-include-negative-tags"
+                        class="current-tags tag-input"
+                        spellcheck="false"
+                        aria-label="Always Include As Negative"
+                        placeholder="blurry, lowres"
+                    ></textarea>
+                </div>
+            </aside>
         </div>
         <!-- <button class="settings-btn" id="settings-btn">⚙️ Settings</button> -->
     </div>
@@ -80,7 +106,6 @@
                     </div>
                     <div class="form-actions">
                         <button type="button" class="test-btn" id="test-btn">Test Connection</button>
-                        <button type="submit" class="save-btn">Save</button>
                     </div>
                     <div class="test-result" id="test-result"></div>
                 </form>
@@ -88,6 +113,6 @@
         </div>
     </div>
     
-    <script src="app.js?v=4"></script>
+    <script src="app.js?v=6"></script>
 </body>
 </html>

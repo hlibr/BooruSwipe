@@ -1,8 +1,10 @@
 """Tests for booru API retry behavior."""
 
 import asyncio
+from unittest.mock import AsyncMock
 
 import httpx
+import pytest
 
 from booruswipe.gelbooru.client import DanbooruClient, E621Client, GelbooruClient
 
@@ -207,3 +209,34 @@ def test_gelbooru_random_image_skips_animated_results(monkeypatch):
 
     assert image.id == 2
     assert client._client.calls == 2
+
+
+@pytest.mark.parametrize(
+    ("client_cls", "random_tag"),
+    [
+        (DanbooruClient, "random:1"),
+        (GelbooruClient, "sort:random"),
+        (E621Client, "order:random"),
+    ],
+)
+def test_random_image_forwards_fixed_tags(client_cls, random_tag, monkeypatch):
+    """Random image selection should preserve the fixed include tags."""
+    monkeypatch.setenv("SKIP_ANIMATED_IMAGES", "false")
+
+    client = client_cls()
+    client.search_images = AsyncMock(return_value=["sentinel"])  # type: ignore[assignment]
+
+    image = asyncio.run(
+        client.get_random_image(
+            always_include_tags=["fixed_one"],
+            always_include_negative_tags=["avoid_one"],
+        )
+    )
+
+    assert image == "sentinel"
+    client.search_images.assert_awaited_once()
+    args, kwargs = client.search_images.await_args
+    assert args[0] == [random_tag]
+    assert kwargs["sort_mode"] == "none"
+    assert kwargs["always_include_tags"] == ["fixed_one"]
+    assert kwargs["always_include_negative_tags"] == ["avoid_one"]

@@ -39,6 +39,31 @@ class JSONDict(TypeDecorator):
         return json.loads(value)
 
 
+class AppSettings(Base):
+    """Persisted editable app settings."""
+
+    __tablename__ = "app_settings"
+
+    id: Mapped[int] = mapped_column(primary_key=True, default=1)
+    always_include_tags: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    always_include_negative_tags: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    created_at: Mapped[datetime] = mapped_column(
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "always_include_tags": self.always_include_tags,
+            "always_include_negative_tags": self.always_include_negative_tags,
+        }
+
+
 class Swipe(Base):
     """Represents a user swipe (like/dislike) event."""
 

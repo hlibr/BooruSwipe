@@ -29,6 +29,61 @@ def log_error(msg: str):
     logging.error(msg, extra={"category": "ERROR"})
 
 
+def _normalize_fixed_tags(tags: Optional[List[str]]) -> List[str]:
+    """Normalize fixed tags that should bypass the per-search cap."""
+    normalized: List[str] = []
+    seen = set()
+
+    for tag in tags or []:
+        clean_tag = tag.strip().lstrip("-").strip()
+        if not clean_tag or clean_tag in seen:
+            continue
+        seen.add(clean_tag)
+        normalized.append(clean_tag)
+
+    return normalized
+
+
+def _build_search_query_tags(
+    tags: List[str],
+    *,
+    source_name: str,
+    sort_mode: Optional[str],
+    always_include_tags: Optional[List[str]] = None,
+    always_include_negative_tags: Optional[List[str]] = None,
+) -> tuple[List[str], str]:
+    """Build a search tag list while keeping fixed tags outside the tag cap."""
+    BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "8"))
+    query_tags: List[str] = []
+    seen = set()
+
+    def add(tag: str) -> None:
+        if tag and tag not in seen:
+            seen.add(tag)
+            query_tags.append(tag)
+
+    for tag in _normalize_fixed_tags(always_include_tags):
+        add(tag)
+
+    for tag in tags[:BOORU_TAGS_PER_SEARCH]:
+        add(tag)
+
+    for tag in _normalize_fixed_tags(always_include_negative_tags):
+        add(f"-{tag}")
+
+    animated_exclusion_tag = get_animated_exclusion_tag()
+    if animated_exclusion_tag:
+        add(animated_exclusion_tag)
+
+    effective_sort_mode = (sort_mode or get_search_sort_mode()).lower()
+    if effective_sort_mode not in {"score", "random", "none"}:
+        raise ValueError(f"Unsupported search sort mode: {effective_sort_mode}")
+    if effective_sort_mode != "none":
+        add(get_search_sort_tag(source_name, effective_sort_mode))
+
+    return query_tags, effective_sort_mode
+
+
 def _get_api_retry_settings() -> tuple[int, float, float]:
     """Read booru API retry settings from the environment."""
     return (
@@ -163,7 +218,11 @@ class DanbooruClient:
             max_delay=max_delay,
         )
     
-    async def get_random_image(self) -> Image:
+    async def get_random_image(
+        self,
+        always_include_tags: Optional[List[str]] = None,
+        always_include_negative_tags: Optional[List[str]] = None,
+    ) -> Image:
         """Fetch a random image from Danbooru.
         
         Returns:
@@ -171,20 +230,26 @@ class DanbooruClient:
         """
         log_image("Requesting random image from Danbooru")
         skip_animated = get_skip_animated_images()
-        limit = "10" if skip_animated else "1"
+        limit = 10 if skip_animated else 1
         attempts = 5 if skip_animated else 1
 
         for attempt in range(attempts):
-            data = await self._request(tags="random:1", limit=limit)
+            images = await self.search_images(
+                ["random:1"],
+                limit=limit,
+                page=0,
+                sort_mode="none",
+                always_include_tags=always_include_tags,
+                always_include_negative_tags=always_include_negative_tags,
+            )
 
-            if not data:
+            if not images:
                 continue
 
-            posts = data if isinstance(data, list) else [data]
             image = (
-                pick_first_non_animated(Image.from_api(post) for post in posts)
+                pick_first_non_animated(images)
                 if skip_animated
-                else Image.from_api(posts[0])
+                else images[0]
             )
             if image is not None:
                 return image
@@ -199,6 +264,8 @@ class DanbooruClient:
         limit: int = 100,
         page: int = 0,
         sort_mode: Optional[str] = None,
+        always_include_tags: Optional[List[str]] = None,
+        always_include_negative_tags: Optional[List[str]] = None,
     ) -> List[Image]:
         """Search for images by tags.
 
@@ -214,16 +281,13 @@ class DanbooruClient:
         if limit > 100:
             limit = 100
 
-        BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "8"))
-        query_tags = tags[:BOORU_TAGS_PER_SEARCH]
-        animated_exclusion_tag = get_animated_exclusion_tag()
-        if animated_exclusion_tag:
-            query_tags = [*query_tags, animated_exclusion_tag]
-        effective_sort_mode = (sort_mode or get_search_sort_mode()).lower()
-        if effective_sort_mode not in {"score", "random", "none"}:
-            raise ValueError(f"Unsupported search sort mode: {effective_sort_mode}")
-        if effective_sort_mode != "none":
-            query_tags = [*query_tags, get_search_sort_tag("danbooru", effective_sort_mode)]
+        query_tags, effective_sort_mode = _build_search_query_tags(
+            tags,
+            source_name="danbooru",
+            sort_mode=sort_mode,
+            always_include_tags=always_include_tags,
+            always_include_negative_tags=always_include_negative_tags,
+        )
         tag_string = " ".join(query_tags)
         log_image(
             f"Searching Danbooru for tags: {tag_string} "
@@ -337,7 +401,11 @@ class GelbooruClient:
             max_delay=max_delay,
         )
     
-    async def get_random_image(self) -> Image:
+    async def get_random_image(
+        self,
+        always_include_tags: Optional[List[str]] = None,
+        always_include_negative_tags: Optional[List[str]] = None,
+    ) -> Image:
         """Fetch a random image from Gelbooru.
         
         Returns:
@@ -349,19 +417,22 @@ class GelbooruClient:
         attempts = 5 if skip_animated else 1
 
         for attempt in range(attempts):
-            data = await self._request(tags="sort:random", limit=limit)
+            images = await self.search_images(
+                ["sort:random"],
+                limit=limit,
+                page=0,
+                sort_mode="none",
+                always_include_tags=always_include_tags,
+                always_include_negative_tags=always_include_negative_tags,
+            )
 
-            posts = data.get("post", []) if isinstance(data, dict) else data
-            if not posts:
+            if not images:
                 continue
 
-            if not isinstance(posts, list):
-                posts = [posts]
-
             image = (
-                pick_first_non_animated(Image.from_api(post) for post in posts)
+                pick_first_non_animated(images)
                 if skip_animated
-                else Image.from_api(posts[0])
+                else images[0]
             )
             if image is not None:
                 return image
@@ -376,6 +447,8 @@ class GelbooruClient:
         limit: int = 100,
         page: int = 0,
         sort_mode: Optional[str] = None,
+        always_include_tags: Optional[List[str]] = None,
+        always_include_negative_tags: Optional[List[str]] = None,
     ) -> List[Image]:
         """Search for images by tags.
 
@@ -391,16 +464,13 @@ class GelbooruClient:
         if limit > 100:
             limit = 100
 
-        BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "8"))
-        query_tags = tags[:BOORU_TAGS_PER_SEARCH]
-        animated_exclusion_tag = get_animated_exclusion_tag()
-        if animated_exclusion_tag:
-            query_tags = [*query_tags, animated_exclusion_tag]
-        effective_sort_mode = (sort_mode or get_search_sort_mode()).lower()
-        if effective_sort_mode not in {"score", "random", "none"}:
-            raise ValueError(f"Unsupported search sort mode: {effective_sort_mode}")
-        if effective_sort_mode != "none":
-            query_tags = [*query_tags, get_search_sort_tag("gelbooru", effective_sort_mode)]
+        query_tags, effective_sort_mode = _build_search_query_tags(
+            tags,
+            source_name="gelbooru",
+            sort_mode=sort_mode,
+            always_include_tags=always_include_tags,
+            always_include_negative_tags=always_include_negative_tags,
+        )
         tag_string = " ".join(query_tags)
         log_image(
             f"Searching Gelbooru for tags: {tag_string} "
@@ -508,7 +578,11 @@ class E621Client:
             return data
         return []
 
-    async def get_random_image(self) -> Image:
+    async def get_random_image(
+        self,
+        always_include_tags: Optional[List[str]] = None,
+        always_include_negative_tags: Optional[List[str]] = None,
+    ) -> Image:
         """Fetch a random image from e621."""
         log_image("Requesting random image from e621")
 
@@ -517,7 +591,14 @@ class E621Client:
         limit = 10 if skip_animated else 1
         for random_tag in ("order:random", "random:1"):
             try:
-                images = await self.search_images([random_tag], limit=limit, page=0, sort_mode="none")
+                images = await self.search_images(
+                    [random_tag],
+                    limit=limit,
+                    page=0,
+                    sort_mode="none",
+                    always_include_tags=always_include_tags,
+                    always_include_negative_tags=always_include_negative_tags,
+                )
             except Exception as exc:
                 last_error = exc
                 continue
@@ -536,21 +617,20 @@ class E621Client:
         limit: int = 100,
         page: int = 0,
         sort_mode: Optional[str] = None,
+        always_include_tags: Optional[List[str]] = None,
+        always_include_negative_tags: Optional[List[str]] = None,
     ) -> List[Image]:
         """Search for images by tags."""
         if limit > 320:
             limit = 320
 
-        BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "8"))
-        query_tags = tags[:BOORU_TAGS_PER_SEARCH]
-        animated_exclusion_tag = get_animated_exclusion_tag()
-        if animated_exclusion_tag:
-            query_tags = [*query_tags, animated_exclusion_tag]
-        effective_sort_mode = (sort_mode or get_search_sort_mode()).lower()
-        if effective_sort_mode not in {"score", "random", "none"}:
-            raise ValueError(f"Unsupported search sort mode: {effective_sort_mode}")
-        if effective_sort_mode != "none":
-            query_tags = [*query_tags, get_search_sort_tag("e621", effective_sort_mode)]
+        query_tags, effective_sort_mode = _build_search_query_tags(
+            tags,
+            source_name="e621",
+            sort_mode=sort_mode,
+            always_include_tags=always_include_tags,
+            always_include_negative_tags=always_include_negative_tags,
+        )
         tag_string = " ".join(query_tags)
         api_page = page + 1
         log_image(

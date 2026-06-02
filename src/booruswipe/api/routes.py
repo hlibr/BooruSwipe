@@ -1,11 +1,12 @@
 """API routes for BooruSwipe."""
 
+from __future__ import annotations
+
 import logging
 import os
 import asyncio
 from typing import Any, Dict, List, Optional
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
@@ -37,6 +38,7 @@ from booruswipe.selection import (
     pick_best_scored_unseen,
     pick_first_unseen,
 )
+from booruswipe.tag_utils import parse_tag_field
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +56,69 @@ def log_image(msg: str):
 
 def log_error(msg: str):
     logging.error(msg, extra={"category": "ERROR"})
+
+
+def _get_settings_path() -> "Path":
+    """Get the path to the settings file."""
+    from pathlib import Path
+
+    env_path = os.getenv("BOORUSWIPE_CONFIG")
+    if env_path:
+        return Path(env_path).expanduser()
+
+    cwd_path = Path.cwd() / "booru.conf"
+    if cwd_path.exists():
+        return cwd_path
+
+    return Path(__file__).parent.parent.parent / "booru.conf"
+
+
+def _load_llm_settings() -> Dict[str, str]:
+    """Load LLM settings from the config file."""
+    settings_path = _get_settings_path()
+    settings = {
+        "api_key": "",
+        "base_url": "https://api.openai.com/v1",
+        "model": "",
+    }
+    if settings_path.exists():
+        with open(settings_path) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    key, value = line.split("=", 1)
+                    key = key.strip().lower()
+                    if key in settings:
+                        settings[key] = value.strip()
+    return settings
+
+
+def _build_display_search_tags(
+    primary_tags: Optional[List[str]],
+    always_include_tags: Optional[List[str]],
+    always_include_negative_tags: Optional[List[str]],
+) -> List[str]:
+    """Build the tag list shown in the UI for the actual query used."""
+    display_tags: List[str] = []
+    seen = set()
+
+    def add(tag: str) -> None:
+        clean_tag = tag.strip().lstrip("-").strip()
+        if not clean_tag or clean_tag in seen:
+            return
+        seen.add(clean_tag)
+        display_tags.append(tag)
+
+    for tag in always_include_tags or []:
+        add(tag)
+
+    for tag in primary_tags or []:
+        add(tag)
+
+    for tag in always_include_negative_tags or []:
+        add(f"-{tag}")
+
+    return display_tags
 
 
 def get_random_tag() -> str:
@@ -83,6 +148,13 @@ class ImageResponse(BaseModel):
     height: Optional[int] = None
     post_url: Optional[str] = None
     media_type: Optional[str] = None
+
+
+class FixedTagSettings(BaseModel):
+    """Fixed tag fields persisted in SQLite."""
+
+    always_include_tags: str = ""
+    always_include_negative_tags: str = ""
 
 
 @router.get("/image/{image_id}")
@@ -145,13 +217,18 @@ class SwipeRequest(BaseModel):
     image_id: int
     direction: str
     weight: int = 1
+    settings: Optional[FixedTagSettings] = None
     
     class Config:
         json_schema_extra = {
             "example": {
                 "image_id": 123456,
                 "direction": "right",
-                "weight": 1
+                "weight": 1,
+                "settings": {
+                    "always_include_tags": "cat, blue_eyes",
+                    "always_include_negative_tags": "blurry, lowres",
+                },
             }
         }
 
@@ -163,7 +240,7 @@ class SwipeResponse(BaseModel):
 
 
 class LLMSettings(BaseModel):
-    """Request model for LLM settings."""
+    """LLM startup settings displayed in the UI."""
     api_key: str
     base_url: str = "https://api.openai.com/v1"
     model: str  # Required, no default
@@ -195,7 +272,12 @@ async def session_context():
     yield _session
 
 
-async def run_llm_analysis(repository, preference_learner):
+async def run_llm_analysis(
+    repository,
+    preference_learner,
+    always_include_tags: Optional[List[str]] = None,
+    always_include_negative_tags: Optional[List[str]] = None,
+):
     """Run LLM analysis with dirty flag state machine.
     
     Creates its own independent DB session to avoid transaction closed errors
@@ -210,6 +292,16 @@ async def run_llm_analysis(repository, preference_learner):
     LLM_RECENT_NEGATIVE = int(os.getenv("LLM_RECENT_NEGATIVE", "25"))
     TAG_DECAY_HALF_LIFE_SWIPES = float(os.getenv("TAG_DECAY_HALF_LIFE_SWIPES", "10"))
     RECENT_SWIPES_WINDOW = int(os.getenv("RECENT_SWIPES_WINDOW", "15"))
+    if always_include_tags is None or always_include_negative_tags is None:
+        settings = await repository.get_or_create_app_settings()
+        if always_include_tags is None:
+            always_include_tags = parse_tag_field(settings.always_include_tags)
+        if always_include_negative_tags is None:
+            always_include_negative_tags = parse_tag_field(
+                settings.always_include_negative_tags
+            )
+    always_include_tags = always_include_tags or []
+    always_include_negative_tags = always_include_negative_tags or []
     
     async with repository.async_sessionmaker() as session:
         try:
@@ -292,6 +384,8 @@ async def run_llm_analysis(repository, preference_learner):
                 tag_limit=BOORU_TAGS_PER_SEARCH,
                 recent_tag_scores=recent_scores,
                 recent_tag_mode=LLM_RECENT_MODE,
+                always_include_tags=always_include_tags,
+                always_include_negative_tags=always_include_negative_tags,
             )
 
             db_profile = await repository.get_or_create_profile(session)
@@ -315,6 +409,12 @@ async def run_llm_analysis(repository, preference_learner):
                     f"RECENT TAGS (split top +{LLM_RECENT_POSITIVE}/-{LLM_RECENT_NEGATIVE}): "
                     f"{', '.join(f'{tag} ({score:+d})' for tag, score in recent_scores.items()) if recent_scores else 'No recent data'}"
                 )
+            if always_include_tags or always_include_negative_tags:
+                log_llm(
+                    "Always include search tags: "
+                    f"+{always_include_tags if always_include_tags else []}, "
+                    f"-{always_include_negative_tags if always_include_negative_tags else []}"
+                )
             log_llm(f"Analyzed preferences with tag frequencies: {tag_freqs}")
             if db_profile.preferences.get('liked_tags'):
                 log_llm(f"Response: liked_tags={db_profile.preferences.get('liked_tags', [])}")
@@ -333,12 +433,22 @@ async def run_llm_analysis(repository, preference_learner):
             if llm_state["dirty"]:
                 llm_state["dirty"] = False
                 log_llm("Analysis complete: dirty=True, re-trigger=True")
-                await maybe_trigger_llm(repository, preference_learner)
+                await maybe_trigger_llm(
+                    repository,
+                    preference_learner,
+                    always_include_tags=always_include_tags,
+                    always_include_negative_tags=always_include_negative_tags,
+                )
             else:
                 log_llm("Analysis complete: dirty=False, re-trigger=False")
 
 
-async def maybe_trigger_llm(repository, preference_learner):
+async def maybe_trigger_llm(
+    repository,
+    preference_learner,
+    always_include_tags: Optional[List[str]] = None,
+    always_include_negative_tags: Optional[List[str]] = None,
+):
     """Trigger LLM analysis based on dirty flag logic."""
     LLM_MIN_SWIPES = int(os.getenv("LLM_MIN_SWIPES", "8"))
     if _session.swipe_count < LLM_MIN_SWIPES:
@@ -351,7 +461,12 @@ async def maybe_trigger_llm(repository, preference_learner):
             log_llm("Triggered: queued for re-run (dirty=True, already processing)")
         else:
             log_llm(f"Triggered: running now (swipe_count={_session.swipe_count}, dirty=False)")
-            await run_llm_analysis(repository, preference_learner)
+            await run_llm_analysis(
+                repository,
+                preference_learner,
+                always_include_tags=always_include_tags,
+                always_include_negative_tags=always_include_negative_tags,
+            )
 
 
 def _build_image_response(image: Any, booru_source: str, search_tags: Optional[List[str]] = None) -> ImageResponse:
@@ -398,6 +513,8 @@ async def select_next_image(
     preference_learner: Optional[PreferenceLearner],
     seen_ids: set[int],
     swipe_count: int,
+    always_include_tags: Optional[List[str]] = None,
+    always_include_negative_tags: Optional[List[str]] = None,
 ) -> tuple[Any, List[str]]:
     """Select next image using full 3-level fallback.
 
@@ -420,6 +537,16 @@ async def select_next_image(
     SKIP_ANIMATED_IMAGES = get_skip_animated_images()
     TAG_DECAY_HALF_LIFE_SWIPES = float(os.getenv("TAG_DECAY_HALF_LIFE_SWIPES", "10"))
     RECENT_SWIPES_WINDOW = int(os.getenv("RECENT_SWIPES_WINDOW", "15"))
+    if always_include_tags is None or always_include_negative_tags is None:
+        settings = await repository.get_or_create_app_settings()
+        if always_include_tags is None:
+            always_include_tags = parse_tag_field(settings.always_include_tags)
+        if always_include_negative_tags is None:
+            always_include_negative_tags = parse_tag_field(
+                settings.always_include_negative_tags
+            )
+    always_include_tags = always_include_tags or []
+    always_include_negative_tags = always_include_negative_tags or []
     
     profile = await repository.get_or_create_profile()
     LLM_MIN_SWIPES = int(os.getenv("LLM_MIN_SWIPES", "8"))
@@ -433,7 +560,17 @@ async def select_next_image(
     if RANDOM_IMAGE_CHANCE > 0 and random.randint(1, 100) <= RANDOM_IMAGE_CHANCE:
         log_image(f"Random image triggered ({RANDOM_IMAGE_CHANCE}% chance)")
         try:
-            return await booru_client.get_random_image(), []
+            return (
+                await booru_client.get_random_image(
+                    always_include_tags=always_include_tags,
+                    always_include_negative_tags=always_include_negative_tags,
+                ),
+                _build_display_search_tags(
+                    [],
+                    always_include_tags,
+                    always_include_negative_tags,
+                ),
+            )
         except Exception as e:
             log_error(f"Random image failed: {type(e).__name__}: {e}, falling back to normal selection")
 
@@ -476,7 +613,14 @@ async def select_next_image(
         best_score = float("-inf")
 
         for page in range(BOORU_SEARCH_PAGES):
-            raw_images = await booru_client.search_images(tags, limit=limit, page=page, sort_mode=effective_sort_mode)
+            raw_images = await booru_client.search_images(
+                tags,
+                limit=limit,
+                page=page,
+                sort_mode=effective_sort_mode,
+                always_include_tags=always_include_tags,
+                always_include_negative_tags=always_include_negative_tags,
+            )
             log_image(f"Page {page}: {booru_label} returned {len(raw_images)} images")
 
             if len(raw_images) == 0:
@@ -525,7 +669,11 @@ async def select_next_image(
             random_tag = get_random_tag()
             image = await search_with_pagination([random_tag], sort_mode="none", rank_candidates=False)
             if image:
-                selected_search_tags = [random_tag]
+                selected_search_tags = _build_display_search_tags(
+                    [random_tag],
+                    always_include_tags,
+                    always_include_negative_tags,
+                )
 
         # Level 1: LLM recommendations
         search_tags = profile.preferences.get("recommended_search_tags", [])
@@ -536,7 +684,11 @@ async def select_next_image(
             # Try with all tags first
             image = await search_with_pagination(llm_tags)
             if image:
-                selected_search_tags = llm_tags
+                selected_search_tags = _build_display_search_tags(
+                    llm_tags,
+                    always_include_tags,
+                    always_include_negative_tags,
+                )
                 log_image(f"Selected image {image.id}")
             elif len(llm_tags) > 1:
                 # If no results, remove HALF the tags randomly and try once
@@ -545,7 +697,11 @@ async def select_next_image(
                 log_image(f"No results - trying {half_count} random tags: {', '.join(remaining_tags)}")
                 image = await search_with_pagination(remaining_tags)
                 if image:
-                    selected_search_tags = remaining_tags
+                    selected_search_tags = _build_display_search_tags(
+                        remaining_tags,
+                        always_include_tags,
+                        always_include_negative_tags,
+                    )
                     log_image(f"Selected image {image.id}")
                 else:
                     log_image("Level 1 failed - moving to Level 2")
@@ -559,7 +715,11 @@ async def select_next_image(
                 log_image(f"Level 2 - Using top liked tags: {', '.join(top_tags)}")
                 image = await search_with_pagination(top_tags)
                 if image:
-                    selected_search_tags = top_tags
+                    selected_search_tags = _build_display_search_tags(
+                        top_tags,
+                        always_include_tags,
+                        always_include_negative_tags,
+                    )
                     log_image(f"Selected image {image.id} with tags: {', '.join(image.tags[:5])}")
 
         # Level 3: Final fallback to random (only if above LLM threshold)
@@ -568,18 +728,36 @@ async def select_next_image(
             random_tag = get_random_tag()
             image = await search_with_pagination([random_tag], sort_mode="none", rank_candidates=False)
             if image:
-                selected_search_tags = [random_tag]
+                selected_search_tags = _build_display_search_tags(
+                    [random_tag],
+                    always_include_tags,
+                    always_include_negative_tags,
+                )
 
             if image is None:
-                image = await booru_client.get_random_image()
-                selected_search_tags = []
+                image = await booru_client.get_random_image(
+                    always_include_tags=always_include_tags,
+                    always_include_negative_tags=always_include_negative_tags,
+                )
+                selected_search_tags = _build_display_search_tags(
+                    [],
+                    always_include_tags,
+                    always_include_negative_tags,
+                )
             log_image(f"Selected random image {image.id}")
 
         # Emergency fallback if still no image (below threshold and random returned nothing)
         if image is None:
             log_image("Emergency fallback: getting random image")
-            image = await booru_client.get_random_image()
-            selected_search_tags = []
+            image = await booru_client.get_random_image(
+                always_include_tags=always_include_tags,
+                always_include_negative_tags=always_include_negative_tags,
+            )
+            selected_search_tags = _build_display_search_tags(
+                [],
+                always_include_tags,
+                always_include_negative_tags,
+            )
             
     except Exception as e:
         log_error(f"Failed to fetch image from booru: {e}")
@@ -615,7 +793,13 @@ async def get_image(
             limit=1000,
             exclude_double_liked=DOUBLE_LIKED_NEVER_IGNORE
         )
-        image, search_tags = await select_next_image(repository, booru_client, preference_learner, seen_ids, _session.swipe_count)
+        image, search_tags = await select_next_image(
+            repository,
+            booru_client,
+            preference_learner,
+            seen_ids,
+            _session.swipe_count,
+        )
     except Exception as e:
         log_error(f"Failed to fetch image from booru: {e}")
         raise HTTPException(
@@ -667,6 +851,23 @@ async def record_swipe(
     
     liked = swipe_request.direction == "right"
     current_swipe_index = _session.swipe_count + 1
+    requested_always_include_tags: Optional[List[str]] = None
+    requested_always_include_negative_tags: Optional[List[str]] = None
+
+    if swipe_request.settings is not None:
+        requested_settings = swipe_request.settings.model_dump()
+        requested_always_include_tags = parse_tag_field(
+            swipe_request.settings.always_include_tags
+        )
+        requested_always_include_negative_tags = parse_tag_field(
+            swipe_request.settings.always_include_negative_tags
+        )
+        try:
+            await repository.update_app_settings(requested_settings)
+        except Exception as e:
+            log_error(
+                f"Failed to persist settings from swipe request: {type(e).__name__}: {e}"
+            )
     
     if _session.current_image is None:
         raise HTTPException(
@@ -715,7 +916,13 @@ async def record_swipe(
         })
         
         if preference_learner:
-            background_tasks.add_task(maybe_trigger_llm, repository, preference_learner)
+            background_tasks.add_task(
+                maybe_trigger_llm,
+                repository,
+                preference_learner,
+                requested_always_include_tags,
+                requested_always_include_negative_tags,
+            )
             log_swipe("LLM trigger queued in background task")
         
         next_image = None
@@ -728,7 +935,15 @@ async def record_swipe(
             )
             
             try:
-                image, search_tags = await select_next_image(repository, booru_client, preference_learner, seen_ids, _session.swipe_count)
+                image, search_tags = await select_next_image(
+                    repository,
+                    booru_client,
+                    preference_learner,
+                    seen_ids,
+                    _session.swipe_count,
+                    requested_always_include_tags,
+                    requested_always_include_negative_tags,
+                )
 
                 booru_source = get_booru_source()
                 next_image = _build_image_response(image, booru_source, search_tags)
@@ -795,66 +1010,25 @@ async def get_stats(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get stats: {str(e)}",
         )
-
-
-def _get_settings_path() -> Path:
-    """Get the path to the settings file."""
-    env_path = os.getenv("BOORUSWIPE_CONFIG")
-    if env_path:
-        return Path(env_path).expanduser()
-
-    cwd_path = Path.cwd() / "booru.conf"
-    if cwd_path.exists():
-        return cwd_path
-
-    return Path(__file__).parent.parent.parent / "booru.conf"
-
-
-def _load_llm_settings() -> Dict[str, str]:
-    """Load LLM settings from .env file."""
-    settings_path = _get_settings_path()
-    settings = {
-        "api_key": "",
-        "base_url": "https://api.openai.com/v1",
-        "model": "",
-    }
-    if settings_path.exists():
-        with open(settings_path) as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#") and "=" in line:
-                    key, value = line.split("=", 1)
-                    key = key.strip().lower()
-                    if key in settings:
-                        settings[key] = value.strip()
+@router.get("/settings")
+async def get_settings(
+    repository: Repository = Depends(get_repository),
+) -> Dict[str, str]:
+    """Get the current UI settings."""
+    settings = _load_llm_settings()
+    fixed_tag_settings = await repository.get_or_create_app_settings()
+    settings.update(fixed_tag_settings.to_dict())
     return settings
 
 
-def _save_llm_settings(settings: Dict[str, str]) -> None:
-    """Save LLM settings to .env file."""
-    settings_path = _get_settings_path()
-    with open(settings_path, "w") as f:
-        f.write(f"api_key={settings.get('api_key', '')}\n")
-        f.write(f"base_url={settings.get('base_url', '')}\n")
-        f.write(f"model={settings.get('model', '')}\n")
-
-
-@router.get("/settings")
-async def get_settings() -> Dict[str, str]:
-    """Get current LLM settings."""
-    return _load_llm_settings()
-
-
 @router.post("/settings")
-async def save_settings(settings: LLMSettings) -> Dict[str, Any]:
-    """Save LLM settings to .env file."""
+async def save_settings(
+    settings: FixedTagSettings,
+    repository: Repository = Depends(get_repository),
+) -> Dict[str, Any]:
+    """Save fixed tag settings to the database."""
     try:
-        settings_dict = {
-            "api_key": settings.api_key,
-            "base_url": settings.base_url,
-            "model": settings.model,
-        }
-        _save_llm_settings(settings_dict)
+        await repository.update_app_settings(settings.model_dump())
         return {"success": True}
     except Exception as e:
         raise HTTPException(

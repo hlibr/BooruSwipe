@@ -26,7 +26,6 @@ danbooru_client: Optional[DanbooruClient] = None
 gelbooru_client: Optional[GelbooruClient] = None
 e621_client: Optional[E621Client] = None
 llm_client: Optional[LLMClient] = None
-llm_settings: dict[str, str] = {}
 verbose: bool = False
 
 
@@ -141,25 +140,14 @@ def _load_booru_settings(source: str) -> dict[str, str]:
                         settings[key] = value.strip()
     return settings
 
-
-def _save_llm_settings(settings: dict[str, str]) -> None:
-    """Save LLM settings to .env file."""
-    settings_path = _get_settings_path()
-    with open(settings_path, "w") as f:
-        f.write(f"api_key={settings.get('api_key', '')}\n")
-        f.write(f"base_url={settings.get('base_url', '')}\n")
-        f.write(f"model={settings.get('model', '')}\n")
-
-
 @asynccontextmanager
 async def lifespan(app):
-    global repo, danbooru_client, gelbooru_client, e621_client, llm_client, llm_settings, verbose
+    global repo, danbooru_client, gelbooru_client, e621_client, llm_client, verbose
     repo = None
     danbooru_client = None
     gelbooru_client = None
     e621_client = None
     llm_client = None
-    llm_settings = {}
     LLM_MAX_TAGS = int(os.getenv("LLM_MAX_TAGS", "30"))
     BOORU_SOURCE = get_booru_source()
     BOORU_SEARCH_SORT_MODE = get_search_sort_mode()
@@ -186,6 +174,8 @@ async def lifespan(app):
     log_startup(f"Using booru source: {BOORU_SOURCE}")
     log_startup(f"Using search sort mode: {BOORU_SEARCH_SORT_MODE}")
     log_startup(f"Using up to {BOORU_TAGS_PER_SEARCH} tags per search")
+
+    llm_settings = _load_llm_settings()
 
     if BOORU_SOURCE == "gelbooru":
         gelbooru_settings = _load_booru_settings("gelbooru")
@@ -221,7 +211,6 @@ async def lifespan(app):
         else:
             log_startup("E621 client initialized (no API credentials)")
     
-    llm_settings = _load_llm_settings()
     api_key = llm_settings.get("api_key")
     model = llm_settings.get("model")
     

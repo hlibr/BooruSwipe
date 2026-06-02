@@ -27,7 +27,7 @@ class LLMClient:
             verbose: Whether to enable verbose logging
         """
         if not model:
-            raise ValueError("LLM model is required. Set 'model' in booru.conf")
+            raise ValueError("LLM model is required. Set it in the app settings.")
         
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")
