@@ -36,7 +36,8 @@ You can also submit stronger feedback with the `x2` buttons. Holding an `x2` but
   - **e621** — [get your API key and username here](https://e621.net/help/api)
 - An LLM (optional, but recommended):
   - Any OpenAI-compatible API
-  - [Ollama](https://ollama.com)
+  - [OpenRouter](https://openrouter.ai/) (has a free tier)
+  - [Ollama](https://ollama.com) or [Ollama Cloud](https://ollama.com/search?c=cloud) (has a free tier)
   - [LM Studio](https://lmstudio.ai)
   - [llama.cpp](https://github.com/ggml-org/llama.cpp)
 
