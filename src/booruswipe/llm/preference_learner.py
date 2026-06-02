@@ -217,7 +217,7 @@ RECENT SWIPES (likes/dislikes):
         if always_include_tags or always_include_negative_tags:
             prompt += f"""
 
-USER SELECTED SEARCH TAGS (these were specifically selected by the user and will be automatically added to the query, make sure that the tags you select match these):
+USER SELECTED SEARCH TAGS (These were specifically selected by the user. These tags will be automatically added to the final query - do not use them in recommended_search_tags. Make sure that the tags you select match these):
 POSITIVE: {always_include_tags_str if always_include_tags_str else "None"}
 NEGATIVE: {always_include_negative_tags_str if always_include_negative_tags_str else "None"}
 """
