@@ -8,6 +8,9 @@ Swipe right on images you like, left on ones you don't. BooruSwipe tracks tag-le
 
 https://github.com/user-attachments/assets/3214239a-606b-4f72-a898-6bcedf7c2ff3
 
+<img width="1496" height="885" alt="Screenshot 2026-06-02 at 4 00 02 PM" src="https://github.com/user-attachments/assets/b9123c70-ccd3-40ea-94f9-65ab83fa7699" />
+
+
 
 
 ---
