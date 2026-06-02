@@ -9,6 +9,18 @@
 <body>
     <div class="container">
         <div class="swipe-layout">
+            <aside class="tag-sidebar tag-sidebar-left" aria-label="Always include tags">
+                <div class="tag-field-group">
+                    <label for="always-include-tags">Always Include Tags</label>
+                    <textarea
+                        id="always-include-tags"
+                        class="current-tags tag-input"
+                        spellcheck="false"
+                        aria-label="Always Include Tags"
+                        placeholder="cat, blue_eyes"
+                    ></textarea>
+                </div>
+            </aside>
             <div class="swipe-stack">
                 <div class="card-container">
                     <div class="card" id="card">
@@ -58,17 +70,7 @@
                     <span>Dislikes: <strong id="dislikes-count">0</strong></span>
                 </div>
             </div>
-            <aside class="tag-sidebar" aria-label="Always included tags">
-                <div class="tag-field-group">
-                    <label for="always-include-tags">Always Include Tags</label>
-                    <textarea
-                        id="always-include-tags"
-                        class="current-tags tag-input"
-                        spellcheck="false"
-                        aria-label="Always Include Tags"
-                        placeholder="cat, blue_eyes"
-                    ></textarea>
-                </div>
+            <aside class="tag-sidebar tag-sidebar-right" aria-label="Always include negative tags">
                 <div class="tag-field-group">
                     <label for="always-include-negative-tags">Always Include As Negative</label>
                     <textarea

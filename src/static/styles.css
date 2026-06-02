@@ -28,18 +28,50 @@ body {
 
 .swipe-layout {
     width: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 400px) minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto auto;
+    justify-items: center;
+    align-items: start;
     gap: 20px;
 }
 
 .swipe-stack {
-    width: min(100%, 400px);
+    display: contents;
+}
+
+.card-container {
+    grid-column: 2;
+    grid-row: 1;
+}
+
+.current-tags {
+    grid-column: 2;
+    grid-row: 2;
+}
+
+.controls {
+    grid-column: 2;
+    grid-row: 3;
+}
+
+.post-link-container {
+    grid-column: 2;
+    grid-row: 4;
+}
+
+.stats {
+    grid-column: 2;
+    grid-row: 5;
+    width: 100%;
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 20px;
+    justify-content: center;
+}
+
+.swipe-stack > * {
+    width: 100%;
+    max-width: 400px;
+    justify-self: center;
 }
 
 .card-container {
@@ -257,9 +289,8 @@ body {
 }
 
 .tag-sidebar {
-    order: -1;
-    flex: 0 0 280px;
-    width: min(100%, 280px);
+    width: 100%;
+    max-width: 280px;
     padding: 16px;
     border-radius: 20px;
     background: rgba(255, 255, 255, 0.08);
@@ -269,6 +300,20 @@ body {
     display: flex;
     flex-direction: column;
     gap: 16px;
+}
+
+.tag-sidebar-left {
+    grid-column: 1;
+    justify-self: end;
+    align-self: end;
+    grid-row: 1;
+}
+
+.tag-sidebar-right {
+    grid-column: 3;
+    justify-self: start;
+    align-self: end;
+    grid-row: 1;
 }
 
 .tag-field-group {
@@ -670,8 +715,17 @@ body {
 
 @media (max-width: 900px) {
     .swipe-layout {
+        display: flex;
         flex-direction: column;
         align-items: center;
+    }
+
+    .swipe-stack {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+        order: 1;
     }
 
     .swipe-stack,
@@ -679,6 +733,9 @@ body {
         width: 100%;
         max-width: 400px;
         flex-basis: auto;
+        grid-column: auto;
+        justify-self: auto;
+        align-self: center;
     }
 
     .tag-sidebar {
