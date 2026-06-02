@@ -151,7 +151,7 @@ async def lifespan(app):
     LLM_MAX_TAGS = int(os.getenv("LLM_MAX_TAGS", "30"))
     BOORU_SOURCE = get_booru_source()
     BOORU_SEARCH_SORT_MODE = get_search_sort_mode()
-    BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "8"))
+    BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "6"))
     if BOORU_SOURCE not in SUPPORTED_BOORU_SOURCES:
         raise ValueError(f"Unsupported BOORU_SOURCE: {BOORU_SOURCE}")
 

@@ -53,7 +53,7 @@ def _build_search_query_tags(
     always_include_negative_tags: Optional[List[str]] = None,
 ) -> tuple[List[str], str]:
     """Build a search tag list while keeping fixed tags outside the tag cap."""
-    BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "8"))
+    BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "6"))
     query_tags: List[str] = []
     seen = set()
 

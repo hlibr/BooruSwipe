@@ -198,8 +198,8 @@ BOORU_SOURCE=gelbooru  # or: danbooru, e621
 | `LLM_RECENT_NEGATIVE` | No | `25` | Number of negative recent tags kept in split mode |
 | `LLM_RECENT` | No | `20` | Number of recent tags kept in absolute mode |
 | `RECENT_SWIPES_WINDOW` | No | `15` | Number of most recent swipes used for recent-tag scoring |
-| `BOORU_TAGS_PER_SEARCH` | No | `8` | Max tags used in the primary search query |
-| `BOORU_TAGS_PER_SEARCH_FALLBACK` | No | `4` | Max tags used in the fallback search query |
+| `BOORU_TAGS_PER_SEARCH` | No | `6` | Max tags used in the primary search query |
+| `BOORU_TAGS_PER_SEARCH_FALLBACK` | No | `3` | Max tags used in the fallback search query |
 | `BOORU_SEARCH_SORT_MODE` | No | `score` | Sort mode for normal searches (`score` or `random`) |
 | `SKIP_ANIMATED_IMAGES` | No | `true` | Exclude animated posts by adding `-animated` to search queries and skipping animated results |
 | `BOORU_API_MAX_RETRIES` | No | `3` | Retries for booru API requests |

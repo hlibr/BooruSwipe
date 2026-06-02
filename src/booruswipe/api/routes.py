@@ -285,7 +285,7 @@ async def run_llm_analysis(
     """
     llm_state["is_processing"] = True
     LLM_MAX_TAGS = int(os.getenv("LLM_MAX_TAGS", "30"))
-    BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "8"))
+    BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "6"))
     LLM_RECENT_MODE = get_llm_recent_mode()
     LLM_RECENT = int(os.getenv("LLM_RECENT", "20"))
     LLM_RECENT_POSITIVE = int(os.getenv("LLM_RECENT_POSITIVE", "25"))
@@ -529,8 +529,8 @@ async def select_next_image(
     """
     import random
     
-    BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "8"))
-    BOORU_TAGS_PER_SEARCH_FALLBACK = int(os.getenv("BOORU_TAGS_PER_SEARCH_FALLBACK", "4"))
+    BOORU_TAGS_PER_SEARCH = int(os.getenv("BOORU_TAGS_PER_SEARCH", "6"))
+    BOORU_TAGS_PER_SEARCH_FALLBACK = int(os.getenv("BOORU_TAGS_PER_SEARCH_FALLBACK", "3"))
     BOORU_SEARCH_LIMIT = int(os.getenv("BOORU_SEARCH_LIMIT", "100"))
     BOORU_SEARCH_PAGES = int(os.getenv("BOORU_SEARCH_PAGES", "1"))
     BOORU_SEARCH_SORT_MODE = get_search_sort_mode()
