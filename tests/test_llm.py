@@ -246,9 +246,9 @@ def test_analyze_preferences_includes_fixed_search_tags_in_prompt(mock_llm_clien
     messages = mock_llm_client.chat_completion.await_args.args[0]
     prompt = messages[1]["content"]
 
-    assert "FIXED SEARCH TAGS" in prompt
-    assert "Always include: night, city" in prompt
-    assert "Always include as negative: -blurry, -lowres" in prompt
+    assert "USER SELECTED SEARCH TAGS" in prompt
+    assert "POSITIVE: night, city" in prompt
+    assert "NEGATIVE: -blurry, -lowres" in prompt
 
 
 def test_parse_tag_field_accepts_commas_and_spaces():
