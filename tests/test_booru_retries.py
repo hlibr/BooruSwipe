@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock
 import httpx
 import pytest
 
-from booruswipe.gelbooru.client import DanbooruClient, E621Client, GelbooruClient
+from booruswipe.gelbooru.client import DanbooruClient, E621Client, GelbooruClient, _RATE_LIMITERS
 
 
 class FakeResponse:
@@ -45,6 +45,13 @@ class FakeAsyncClient:
         if isinstance(outcome, Exception):
             raise outcome
         return outcome
+
+
+@pytest.fixture(autouse=True)
+def disable_rate_limit_by_default(monkeypatch):
+    """Keep existing retry tests focused on retry backoff unless overridden."""
+    _RATE_LIMITERS.clear()
+    monkeypatch.setenv("BOORU_API_MIN_INTERVAL_SECONDS", "0")
 
 
 def test_booru_request_retries_on_retryable_status_and_succeeds(monkeypatch):
@@ -103,6 +110,58 @@ def test_booru_request_retries_on_timeout(monkeypatch):
     assert result == {"ok": True}
     assert client._client.calls == 2
     assert sleep_calls == [0.1]
+
+
+def test_booru_requests_are_rate_limited_per_source(monkeypatch):
+    """Successful calls to the same booru source should be spaced out."""
+    monkeypatch.setenv("BOORU_API_MIN_INTERVAL_SECONDS", "1")
+
+    sleep_calls = []
+
+    async def fake_sleep(delay):
+        sleep_calls.append(delay)
+
+    monkeypatch.setattr("booruswipe.gelbooru.client.asyncio.sleep", fake_sleep)
+
+    client = E621Client()
+    client._client = FakeAsyncClient(
+        [
+            FakeResponse(200, payload={"posts": []}),
+            FakeResponse(200, payload={"posts": []}),
+        ]
+    )
+
+    asyncio.run(client._request(tags="cat", limit="1"))
+    asyncio.run(client._request(tags="dog", limit="1"))
+
+    assert client._client.calls == 2
+    assert len(sleep_calls) == 1
+    assert sleep_calls[0] == pytest.approx(1.0, abs=0.1)
+
+
+def test_booru_rate_limits_are_independent_per_source(monkeypatch):
+    """A request to one booru should not consume another booru's interval."""
+    monkeypatch.setenv("BOORU_API_MIN_INTERVAL_SECONDS", "1")
+
+    sleep_calls = []
+
+    async def fake_sleep(delay):
+        sleep_calls.append(delay)
+
+    monkeypatch.setattr("booruswipe.gelbooru.client.asyncio.sleep", fake_sleep)
+
+    danbooru_client = DanbooruClient()
+    danbooru_client._client = FakeAsyncClient([FakeResponse(200, payload=[])])
+
+    gelbooru_client = GelbooruClient()
+    gelbooru_client._client = FakeAsyncClient([FakeResponse(200, payload={"post": []})])
+
+    asyncio.run(danbooru_client._request(tags="cat", limit="1"))
+    asyncio.run(gelbooru_client._request(tags="cat", limit="1"))
+
+    assert danbooru_client._client.calls == 1
+    assert gelbooru_client._client.calls == 1
+    assert sleep_calls == []
 
 
 def test_booru_request_honors_retry_after(monkeypatch):

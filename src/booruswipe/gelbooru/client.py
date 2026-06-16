@@ -21,6 +21,7 @@ from booruswipe.selection import pick_first_non_animated
 logger = logging.getLogger(__name__)
 
 RETRYABLE_STATUS_CODES = {408, 425, 429, 500, 502, 503, 504}
+DEFAULT_BOORU_API_MIN_INTERVAL_SECONDS = 1.0
 
 def log_image(msg: str):
     logging.info(msg, extra={"category": "IMAGE"})
@@ -93,6 +94,49 @@ def _get_api_retry_settings() -> tuple[int, float, float]:
     )
 
 
+def _get_rate_limit_interval(source_name: str) -> float:
+    """Read the minimum interval between API requests for a booru source."""
+    source_key = source_name.upper().replace("-", "_")
+    source_value = os.getenv(f"{source_key}_API_MIN_INTERVAL_SECONDS")
+    default_value = os.getenv(
+        "BOORU_API_MIN_INTERVAL_SECONDS",
+        str(DEFAULT_BOORU_API_MIN_INTERVAL_SECONDS),
+    )
+    return max(0.0, float(source_value if source_value is not None else default_value))
+
+
+class AsyncRateLimiter:
+    """Serialize requests so a source is not queried faster than configured."""
+
+    def __init__(self) -> None:
+        self._lock = asyncio.Lock()
+        self._last_request_at: Optional[float] = None
+
+    async def wait(self, min_interval_seconds: float) -> None:
+        if min_interval_seconds <= 0:
+            return
+
+        async with self._lock:
+            loop = asyncio.get_running_loop()
+            now = loop.time()
+            if self._last_request_at is not None:
+                wait_time = min_interval_seconds - (now - self._last_request_at)
+                if wait_time > 0:
+                    await asyncio.sleep(wait_time)
+
+            self._last_request_at = loop.time()
+
+
+_RATE_LIMITERS: dict[str, AsyncRateLimiter] = {}
+
+
+def _get_rate_limiter(source_name: str) -> AsyncRateLimiter:
+    source_key = source_name.lower()
+    if source_key not in _RATE_LIMITERS:
+        _RATE_LIMITERS[source_key] = AsyncRateLimiter()
+    return _RATE_LIMITERS[source_key]
+
+
 def _parse_retry_after_seconds(retry_after: Optional[str]) -> Optional[float]:
     """Parse Retry-After header values into seconds."""
     if not retry_after:
@@ -123,8 +167,12 @@ async def _request_json_with_retries(
     max_delay: float,
 ) -> dict:
     """GET JSON with retry/backoff for transient HTTP and network failures."""
+    rate_limiter = _get_rate_limiter(source_name)
+    min_interval_seconds = _get_rate_limit_interval(source_name)
+
     for attempt in range(max_retries):
         try:
+            await rate_limiter.wait(min_interval_seconds)
             response = await client.get(url)
 
             if response.status_code in RETRYABLE_STATUS_CODES:
