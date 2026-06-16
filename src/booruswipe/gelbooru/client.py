@@ -542,11 +542,11 @@ class E621Client:
         """Make a request to the e621 API."""
         if self._client is None:
             self._client = httpx.AsyncClient(
-                headers={"User-Agent": "BooruSwipe/1.0"},
+                headers={"User-Agent": "BooruSwipe/1.0 (baton4ik)"},
                 follow_redirects=True,
             )
 
-        self._client.headers = {"User-Agent": "BooruSwipe/1.0"}
+        self._client.headers = {"User-Agent": "BooruSwipe/1.0 (baton4ik)"}
         self._client.auth = (
             httpx.BasicAuth(self.user_id, self.api_key)
             if self.user_id and self.api_key
