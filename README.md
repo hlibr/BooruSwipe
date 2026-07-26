@@ -49,7 +49,10 @@ You can also submit stronger feedback with the `x2` buttons. Holding an `x2` but
 git clone https://github.com/hlibr/BooruSwipe.git
 cd BooruSwipe
 python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+source .venv/bin/activate
+```
+Or, if you're on Windows: ```.venv\Scripts\activate```
+```bash
 pip install .
 cp booru.conf.example booru.conf
 ```
@@ -112,7 +115,9 @@ python -m booruswipe --verbose
 
 ```bash
 cp booru.conf.example booru.conf
-# edit booru.conf, then:
+```
+Edit booru.conf, then:
+```bash
 docker compose build
 docker compose up
 ```
