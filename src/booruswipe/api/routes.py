@@ -148,6 +148,8 @@ class ImageResponse(BaseModel):
     height: Optional[int] = None
     post_url: Optional[str] = None
     media_type: Optional[str] = None
+    preferences_summary: Optional[str] = None
+
 
 
 class FixedTagSettings(BaseModel):
@@ -469,7 +471,12 @@ async def maybe_trigger_llm(
             )
 
 
-def _build_image_response(image: Any, booru_source: str, search_tags: Optional[List[str]] = None) -> ImageResponse:
+def _build_image_response(
+    image: Any,
+    booru_source: str,
+    search_tags: Optional[List[str]] = None,
+    preferences_summary: Optional[str] = None,
+) -> ImageResponse:
     """Build image response with the correct source-specific URL."""
     display_url = image.sample_url or image.url
     lower_display_url = display_url.lower()
@@ -504,6 +511,7 @@ def _build_image_response(image: Any, booru_source: str, search_tags: Optional[L
         height=image.height,
         post_url=post_url,
         media_type=display_media_type,
+        preferences_summary=preferences_summary,
     )
 
 
@@ -808,8 +816,10 @@ async def get_image(
         )
     
     # Only proxy Gelbooru, direct-link Danbooru and e621
+    profile = await repository.get_or_create_profile()
+    preferences_summary = profile.preferences.get("preferences_summary", "") if profile and profile.preferences else ""
     booru_source = get_booru_source()
-    response = _build_image_response(image, booru_source, search_tags)
+    response = _build_image_response(image, booru_source, search_tags, preferences_summary=preferences_summary)
 
     _session.current_image = {
         "id": image.id,
@@ -822,6 +832,7 @@ async def get_image(
         "height": image.height,
         "post_url": response.post_url,
         "media_type": response.media_type,
+        "preferences_summary": preferences_summary,
     }
 
     return response
@@ -945,8 +956,10 @@ async def record_swipe(
                     requested_always_include_negative_tags,
                 )
 
+                profile = await repository.get_or_create_profile()
+                preferences_summary = profile.preferences.get("preferences_summary", "") if profile and profile.preferences else ""
                 booru_source = get_booru_source()
-                next_image = _build_image_response(image, booru_source, search_tags)
+                next_image = _build_image_response(image, booru_source, search_tags, preferences_summary=preferences_summary)
 
                 _session.current_image = {
                     "id": image.id,
@@ -959,6 +972,7 @@ async def record_swipe(
                     "height": image.height,
                     "post_url": next_image.post_url,
                     "media_type": next_image.media_type,
+                    "preferences_summary": preferences_summary,
                 }
                 log_image(f"Next image selected: id={image.id}")
             except Exception as e:
@@ -999,11 +1013,18 @@ async def get_stats(
         swipes = await repository.get_swipes(limit=1000)
         total = len(swipes)
         likes = sum(1 for s in swipes if s.liked)
+        profile = await repository.get_or_create_profile()
+        preferences_summary = (
+            profile.preferences.get("preferences_summary", "")
+            if profile and profile.preferences
+            else ""
+        )
         return {
             "total_swipes": total,
             "likes": likes,
             "dislikes": total - likes,
             "session_swipes": _session.swipe_count,
+            "preferences_summary": preferences_summary,
         }
     except Exception as e:
         raise HTTPException(

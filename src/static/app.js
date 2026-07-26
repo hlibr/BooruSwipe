@@ -12,6 +12,7 @@ class SwipeCard {
         this.dislikesCount = document.getElementById('dislikes-count');
         this.postLink = document.getElementById('post-link');
         this.currentTagsField = document.getElementById('current-tags');
+        this.aiPreferenceField = document.getElementById('ai-preference');
         this.settingsManager = settingsManager;
 
         this.currentImage = null;
@@ -544,6 +545,9 @@ class SwipeCard {
             } else {
                 this.currentImage = data;
                 this.setCurrentTags(data.search_tags || []);
+                if (data.preferences_summary !== undefined) {
+                    this.setAiPreference(data.preferences_summary);
+                }
                 // Update post link
                 if (data.post_url) {
                     this.postLink.href = data.post_url;
@@ -572,6 +576,14 @@ class SwipeCard {
         this.currentTagsField.value = tags.length ? tags.join(' ') : 'No active recommendation';
         this.currentTagsField.style.height = 'auto';
         this.currentTagsField.style.height = `${this.currentTagsField.scrollHeight}px`;
+    }
+
+    setAiPreference(summaryText) {
+        if (!this.aiPreferenceField) return;
+        const text = summaryText ? summaryText.trim() : '';
+        this.aiPreferenceField.value = text || 'No AI preference data yet...';
+        this.aiPreferenceField.style.height = 'auto';
+        this.aiPreferenceField.style.height = `${this.aiPreferenceField.scrollHeight}px`;
     }
 
     async displayMedia(data) {
@@ -695,6 +707,9 @@ class SwipeCard {
                 this.stats.likes = data.likes || 0;
                 this.stats.dislikes = data.dislikes || 0;
                 this.updateStatsDisplay();
+                if (data.preferences_summary !== undefined) {
+                    this.setAiPreference(data.preferences_summary);
+                }
             }
         } catch (error) {
             console.error('Failed to load stats:', error);

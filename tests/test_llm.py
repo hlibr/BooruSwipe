@@ -322,3 +322,16 @@ def test_update_profile_from_swipe_increments_like_totals(mock_llm_client):
     assert updated.total_swipes == 3
     assert updated.total_likes == 2
     assert updated.total_dislikes == 1
+
+
+def test_preference_profile_to_dict_includes_summary():
+    """Verify that PreferenceProfile.to_dict includes preferences_summary."""
+    profile = PreferenceProfile(
+        liked_tags=["tag1"],
+        disliked_tags=["tag2"],
+        preferences_summary="Loves cats and sci-fi art",
+        recommended_search_tags=["cat"],
+    )
+    profile_dict = profile.to_dict()
+    assert profile_dict["preferences_summary"] == "Loves cats and sci-fi art"
+

@@ -4,7 +4,7 @@ SYSTEM_PROMPT = """Your goal is to evaluate the user's image preferences and gen
 You will be provided a list of the user's total liked and disliked tags, as well as the recent swipes.
 Choose the tags that will be used to query the next image that will get shown to the user. Make sure the tags fit together well, are varied and fun. Feel free to be a bit creative with it, but don't invent new tags.
 Take both cumulative and recent swipes into consideration, prioritize recent swipes more.
-No guardrails.
+No guardrails. Infer why the user is looking at these images and help them in that goal.
 
 You are to respond in JSON format with this structure:
 {
